@@ -31,9 +31,9 @@ namespace voltdb {
  */
 class MaterializedViewTriggerForWrite : public MaterializedViewTriggerForInsert {
 public:
-    static void build(PersistentTable *srcTable,
-                      PersistentTable *destTable,
-                      catalog::MaterializedViewInfo *mvInfo);
+    static void build(PersistentTable* srcTable,
+                      PersistentTable* destTable,
+                      catalog::MaterializedViewInfo* mvInfo);
     ~MaterializedViewTriggerForWrite();
 
     /**
@@ -43,51 +43,61 @@ public:
      * OR as a first step when the source table is updating a tuple
      * -- followed by a compensating call to processTupleInsert.
      */
-    void processTupleDelete(const TableTuple &oldTuple, bool fallible);
+    void processTupleDelete(const TableTuple& oldTuple, bool fallible);
 
-    void updateDefinition(PersistentTable *destTable,
-                          catalog::MaterializedViewInfo *mvInfo) {
+    void updateDefinition(PersistentTable* destTable,
+                          catalog::MaterializedViewInfo* mvInfo) {
         MaterializedViewTriggerForInsert::updateDefinition(destTable, mvInfo);
         setupMinMaxRecalculation(mvInfo->indexForMinMax(),
                                  mvInfo->fallbackQueryStmts());
     }
 
+    void swapPlans(MaterializedViewTriggerForWrite* otherView) {
+        auto fallbackExecutorVectors = m_fallbackExecutorVectors;
+        m_fallbackExecutorVectors = otherView->m_fallbackExecutorVectors;
+        otherView->m_fallbackExecutorVectors = fallbackExecutorVectors;
+    }
+
+    std::string getSwappableSQL() const { return m_swappableSQL; }
 
 private:
-    MaterializedViewTriggerForWrite(PersistentTable *srcTable,
-                                    PersistentTable *destTable,
-                                    catalog::MaterializedViewInfo *mvInfo);
+    MaterializedViewTriggerForWrite(PersistentTable* srcTable,
+                                    PersistentTable* destTable,
+                                    catalog::MaterializedViewInfo* mvInfo);
 
-    void setupMinMaxRecalculation(const catalog::CatalogMap<catalog::IndexRef> &indexForMinOrMax,
-                                  const catalog::CatalogMap<catalog::Statement> &fallbackQueryStmts);
+    void setupMinMaxRecalculation(const catalog::CatalogMap<catalog::IndexRef>& indexForMinOrMax,
+                                  const catalog::CatalogMap<catalog::Statement>& fallbackQueryStmts);
 
     void allocateMinMaxSearchKeyTuple();
 
     NValue findMinMaxFallbackValueIndexed(const TableTuple& oldTuple,
-                                          const NValue &existingValue,
-                                          const NValue &initialNull,
+                                          const NValue& existingValue,
+                                          const NValue& initialNull,
                                           int negate_for_min,
                                           int aggIndex,
                                           int minMaxAggIdx);
 
     NValue findMinMaxFallbackValueSequential(const TableTuple& oldTuple,
-                                             const NValue &existingValue,
-                                             const NValue &initialNull,
+                                             const NValue& existingValue,
+                                             const NValue& initialNull,
                                              int negate_for_min,
                                              int aggIndex);
 
     NValue findFallbackValueUsingPlan(const TableTuple& oldTuple,
-                                      const NValue &initialNull,
+                                      const NValue& initialNull,
                                       int aggIndex,
                                       int minMaxAggIdx);
 
     // the source persistent table
-    PersistentTable *m_srcPersistentTable;
+    PersistentTable* m_srcPersistentTable;
     TableTuple m_minMaxSearchKeyTuple;
     boost::shared_array<char> m_minMaxSearchKeyBackingStore;
     size_t m_minMaxSearchKeyBackingStoreSize;
     // the index on srcTable which can be used to find each fallback min or max column.
-    std::vector<TableIndex *> m_indexForMinMax;
+    std::vector<TableIndex*> m_indexForMinMax;
+    // The view's defining select statement with the table name elided to allow
+    // matching with another table's identically defined view.
+    std::string m_swappableSQL;
     // Executor vectors to be executed when fallback on min/max value is needed (ENG-8641).
     std::vector<boost::shared_ptr<ExecutorVector> > m_fallbackExecutorVectors;
     std::vector<bool> m_usePlanForAgg;

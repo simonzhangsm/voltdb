@@ -58,22 +58,21 @@ public:
      */
     void processTupleInsert(const TableTuple &newTuple, bool fallible);
 
-    PersistentTable * targetTable() const { return m_target; }
+    PersistentTable* targetTable() const { return m_target; }
 
     catalog::MaterializedViewInfo* getMaterializedViewInfo() const {
         return m_mvInfo;
     }
 
-    virtual void updateDefinition(PersistentTable *destTable, catalog::MaterializedViewInfo *mvInfo);
+    virtual void updateDefinition(PersistentTable* destTable, catalog::MaterializedViewInfo* mvInfo);
 
     template<class MATVIEW> static void segregateMaterializedViews(
-        std::vector<MATVIEW*> &viewsIn,
-        std::map<std::string, catalog::MaterializedViewInfo*>::const_iterator const & start,
-        std::map<std::string, catalog::MaterializedViewInfo*>::const_iterator const & end,
-        std::vector<catalog::MaterializedViewInfo*> &survivingInfosOut,
-        std::vector<MATVIEW*> &survivingViewsOut,
-        std::vector<MATVIEW*> &obsoleteViewsOut)
-    {
+        std::vector<MATVIEW*> const& viewsIn,
+        std::map<std::string, catalog::MaterializedViewInfo*>::const_iterator const& start,
+        std::map<std::string, catalog::MaterializedViewInfo*>::const_iterator const& end,
+        std::vector<catalog::MaterializedViewInfo*>& survivingInfosOut,
+        std::vector<MATVIEW*>& survivingViewsOut,
+        std::vector<MATVIEW*>& obsoleteViewsOut) {
         // iterate through all of the existing views
         BOOST_FOREACH(MATVIEW* currView, viewsIn) {
             std::string currentViewId = currView->targetTable()->name();
@@ -102,9 +101,9 @@ public:
 
 
 protected:
-    MaterializedViewTriggerForInsert(PersistentTable *destTable,
-                                  catalog::MaterializedViewInfo *mvInfo);
-    void setTargetTable(PersistentTable * target);
+    MaterializedViewTriggerForInsert(PersistentTable* destTable,
+                                  catalog::MaterializedViewInfo* mvInfo);
+    void setTargetTable(PersistentTable* target);
 
     void initializeTupleHavingNoGroupBy(bool fallible);
 
@@ -113,9 +112,9 @@ protected:
     void initUpdatableIndexList();
 
     /** load a predicate from the catalog structure if it's there */
-    static AbstractExpression* parsePredicate(catalog::MaterializedViewInfo *mvInfo);
-    std::size_t parseGroupBy(catalog::MaterializedViewInfo *mvInfo);
-    std::size_t parseAggregation(catalog::MaterializedViewInfo *mvInfo);
+    static AbstractExpression* parsePredicate(catalog::MaterializedViewInfo* mvInfo);
+    std::size_t parseGroupBy(catalog::MaterializedViewInfo* mvInfo);
+    std::size_t parseAggregation(catalog::MaterializedViewInfo* mvInfo);
 
     NValue getGroupByValueFromSrcTuple(int colIndex, const TableTuple& tuple);
     NValue getAggInputFromSrcTuple(int aggIndex, const TableTuple& tuple);
@@ -127,13 +126,13 @@ protected:
     bool findExistingTuple(const TableTuple &oldTuple);
 
     // the materialized view table
-    PersistentTable *m_target;
+    PersistentTable* m_target;
 
-    catalog::MaterializedViewInfo *m_mvInfo;
+    catalog::MaterializedViewInfo* m_mvInfo;
 
     // the primary index on the view table whose columns
     // are the same as the group by in the view query
-    TableIndex *m_index;
+    TableIndex* m_index;
 
     // space to store temp view tuples
     TableTuple m_existingTuple;
@@ -153,7 +152,7 @@ protected:
         return (m_filterPredicate && !m_filterPredicate->eval(&tuple, NULL).isTrue());
     }
 
-    std::vector<AbstractExpression *> m_groupByExprs;
+    std::vector<AbstractExpression*> m_groupByExprs;
     std::vector<int32_t> m_groupByColIndexes;
     // How many columns (or expressions) is the view aggregated on?
     // This MUST be declared/initialized AFTER m_groupByExprs/m_groupByColIndexes
@@ -167,7 +166,7 @@ protected:
 
     // what are the indexes of columns in the src table for
     // the columns in the view table
-    std::vector<AbstractExpression *> m_aggExprs;
+    std::vector<AbstractExpression*> m_aggExprs;
     std::vector<int32_t> m_aggColIndexes;
     // what are the aggregates for each column in the view table
     std::vector<ExpressionType> m_aggTypes;
@@ -191,12 +190,12 @@ protected:
  */
 class MaterializedViewTriggerForStreamInsert : public  MaterializedViewTriggerForInsert {
 public:
-    static void build(StreamedTable *srcTable,
-                      PersistentTable *destTable,
-                      catalog::MaterializedViewInfo *mvInfo);
+    static void build(StreamedTable* srcTable,
+                      PersistentTable* destTable,
+                      catalog::MaterializedViewInfo* mvInfo);
 private:
-    MaterializedViewTriggerForStreamInsert(PersistentTable *destTable,
-                                        catalog::MaterializedViewInfo *mvInfo)
+    MaterializedViewTriggerForStreamInsert(PersistentTable* destTable,
+                                        catalog::MaterializedViewInfo* mvInfo)
         : MaterializedViewTriggerForInsert(destTable, mvInfo)
     { }
 };

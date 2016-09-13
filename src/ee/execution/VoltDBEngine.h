@@ -153,7 +153,7 @@ class __attribute__((visibility("default"))) VoltDBEngine {
         int executePlanFragments(int32_t numFragments,
                                  int64_t planfragmentIds[],
                                  int64_t inputDependencyIds[],
-                                 ReferenceSerializeInputBE &serialize_in,
+                                 ReferenceSerializeInputBE& serialize_in,
                                  int64_t txnId,
                                  int64_t spHandle,
                                  int64_t lastCommittedSpHandle,
@@ -218,7 +218,8 @@ class __attribute__((visibility("default"))) VoltDBEngine {
                                                                   int64_t tuplesProcessed) {
             try {
                 pushTuplesProcessedForProgressMonitoring(limits, tuplesProcessed);
-            } catch(const SerializableEEException &e) {
+            }
+            catch (const SerializableEEException& e) {
                 e.serialize(getExceptionOutputSerializer());
             }
 
@@ -241,8 +242,8 @@ class __attribute__((visibility("default"))) VoltDBEngine {
         // -------------------------------------------------
         // Catalog Functions
         // -------------------------------------------------
-        bool loadCatalog(const int64_t timestamp, const std::string &catalogPayload);
-        bool updateCatalog(const int64_t timestamp, const std::string &catalogPayload);
+        bool loadCatalog(const int64_t timestamp, const std::string& catalogPayload);
+        bool updateCatalog(const int64_t timestamp, const std::string& catalogPayload);
         bool processCatalogAdditions(int64_t timestamp);
 
         /**
@@ -250,7 +251,7 @@ class __attribute__((visibility("default"))) VoltDBEngine {
         * This must be called at most only once before any data is loaded in to the table.
         */
         bool loadTable(int32_t tableId,
-                       ReferenceSerializeInputBE &serializeIn,
+                       ReferenceSerializeInputBE& serializeIn,
                        int64_t txnId,
                        int64_t spHandle, int64_t lastCommittedSpHandle,
                        int64_t uniqueId,
@@ -258,7 +259,7 @@ class __attribute__((visibility("default"))) VoltDBEngine {
                        bool shouldDRStream);
 
         void resetReusedResultOutputBuffer(const size_t headerSize = 0);
-        ReferenceSerializeOutput* getExceptionOutputSerializer() { return &m_exceptionOutput; }
+        ReferenceSerializeOutput* getExceptionOutputSerializer() { return& m_exceptionOutput; }
         void setBuffers(char *parameter_buffer, int m_parameterBuffercapacity,
                 char *resultBuffer, int resultBufferCapacity,
                 char *exceptionBuffer, int exceptionBufferCapacity);
@@ -339,9 +340,9 @@ class __attribute__((visibility("default"))) VoltDBEngine {
                 bool interval,
                 int64_t now);
 
-        Pool* getStringPool() { return &m_stringPool; }
+        Pool* getStringPool() { return& m_stringPool; }
 
-        LogManager* getLogManager() { return &m_logManager; }
+        LogManager* getLogManager() { return& m_logManager; }
 
         void setUndoToken(int64_t nextUndoToken)
         {
@@ -392,7 +393,7 @@ class __attribute__((visibility("default"))) VoltDBEngine {
                 const CatalogId tableId,
                 const TableStreamType streamType,
                 int64_t undoToken,
-                ReferenceSerializeInputBE &serializeIn);
+                ReferenceSerializeInputBE& serializeIn);
 
         /**
          * Serialize tuples to output streams from a table in COW mode.
@@ -401,7 +402,7 @@ class __attribute__((visibility("default"))) VoltDBEngine {
          */
         int64_t tableStreamSerializeMore(const CatalogId tableId,
                                          const TableStreamType streamType,
-                                         ReferenceSerializeInputBE &serializeIn);
+                                         ReferenceSerializeInputBE& serializeIn);
 
         /**
          * Serialize tuples to output streams from a table in COW mode.
@@ -410,8 +411,8 @@ class __attribute__((visibility("default"))) VoltDBEngine {
          */
         int64_t tableStreamSerializeMore(const CatalogId tableId,
                                          const TableStreamType streamType,
-                                         ReferenceSerializeInputBE &serializeIn,
-                                         std::vector<int> &retPositions);
+                                         ReferenceSerializeInputBE& serializeIn,
+                                         std::vector<int>& retPositions);
 
         /*
          * Apply the updates in a recovery message.
@@ -429,7 +430,7 @@ class __attribute__((visibility("default"))) VoltDBEngine {
         int64_t exportAction(bool syncAction, int64_t ackOffset, int64_t seqNo,
                              std::string tableSignature);
 
-        void getUSOForExportTable(size_t &ackOffset, int64_t &seqNo, std::string tableSignature);
+        void getUSOForExportTable(size_t& ackOffset, int64_t& seqNo, std::string tableSignature);
 
         /**
          * Retrieve a hash code for the specified table
@@ -451,7 +452,7 @@ class __attribute__((visibility("default"))) VoltDBEngine {
          * Execute an arbitrary task represented by the task id and serialized parameters.
          * Returns serialized representation of the results
          */
-        void executeTask(TaskType taskType, ReferenceSerializeInputBE &taskInfo);
+        void executeTask(TaskType taskType, ReferenceSerializeInputBE& taskInfo);
 
         void rebuildTableCollections();
 
@@ -474,7 +475,7 @@ class __attribute__((visibility("default"))) VoltDBEngine {
         /*
          * Tasks dispatched by executeTask
          */
-        void dispatchValidatePartitioningTask(ReferenceSerializeInputBE &taskInfo);
+        void dispatchValidatePartitioningTask(ReferenceSerializeInputBE& taskInfo);
 
         void collectDRTupleStreamStateInfo();
 
@@ -692,6 +693,6 @@ inline void VoltDBEngine::resetReusedResultOutputBuffer(const size_t headerSize)
     *reinterpret_cast<int32_t*>(m_exceptionBuffer) = voltdb::VOLT_EE_EXCEPTION_TYPE_NONE;
 }
 
-} // namespace voltdb
+}// namespace voltdb
 
 #endif // VOLTDBENGINE_H

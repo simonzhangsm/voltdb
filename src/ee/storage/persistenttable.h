@@ -95,9 +95,9 @@ class PersistentTableSurgeon {
 
 public:
 
-    TBMap &getData() const;
+    TBMap& getData() const;
     PersistentTable& getTable();
-    void insertTupleForUndo(char *tuple);
+    void insertTupleForUndo(char* tuple);
     void updateTupleForUndo(char* targetTupleToUpdate,
                             char* sourceTupleWithNewValues,
                             bool revertIndexes);
@@ -107,10 +107,10 @@ public:
     // The initial use case is a live catalog update that changes table schema and migrates tuples
     // and/or adds a materialized view.
     // Constraint checks are bypassed and the change does not make use of "undo" support.
-    void deleteTuple(TableTuple &tuple, bool fallible=true);
+    void deleteTuple(TableTuple& tuple, bool fallible=true);
     void deleteTupleForUndo(char* tupleData, bool skipLookup = false);
     void deleteTupleRelease(char* tuple);
-    void deleteTupleStorage(TableTuple &tuple, TBPtr block = TBPtr(NULL));
+    void deleteTupleStorage(TableTuple& tuple, TBPtr block = TBPtr(NULL));
 
     size_t getSnapshotPendingBlockCount() const;
     size_t getSnapshotPendingLoadBlockCount() const;
@@ -127,9 +127,9 @@ public:
     size_t indexSize() const;
     bool isIndexingComplete() const;
     void setIndexingComplete();
-    bool indexHas(TableTuple &tuple) const;
-    bool indexAdd(TableTuple &tuple);
-    bool indexRemove(TableTuple &tuple);
+    bool indexHas(TableTuple& tuple) const;
+    bool indexAdd(TableTuple& tuple);
+    bool indexRemove(TableTuple& tuple);
     void initTableStreamer(TableStreamerInterface* streamer);
     bool hasStreamType(TableStreamType streamType) const;
     ElasticIndex::iterator indexIterator();
@@ -141,24 +141,23 @@ public:
     ElasticIndex::iterator indexEnd();
     ElasticIndex::const_iterator indexEnd() const;
     boost::shared_ptr<ElasticIndexTupleRangeIterator>
-            getIndexTupleRangeIterator(const ElasticIndexHashRange &range);
+            getIndexTupleRangeIterator(const ElasticIndexHashRange& range);
     void activateSnapshot();
-    void printIndex(std::ostream &os, int32_t limit) const;
-    ElasticHash generateTupleHash(TableTuple &tuple) const;
+    void printIndex(std::ostream& os, int32_t limit) const;
+    ElasticHash generateTupleHash(TableTuple& tuple) const;
 
 private:
-
     /**
      * Only PersistentTable can call the constructor.
      */
-    PersistentTableSurgeon(PersistentTable &table);
+    PersistentTableSurgeon(PersistentTable& table);
 
     /**
      * Only PersistentTable can call the destructor.
      */
     ~PersistentTableSurgeon() { }
 
-    PersistentTable &m_table;
+    PersistentTable& m_table;
 
     /**
      * Elastic index.
@@ -218,7 +217,7 @@ private:
     // default iterator
     TableIterator m_iter;
 
-    virtual void initializeWithColumns(TupleSchema *schema, const std::vector<std::string> &columnNames, bool ownsTupleSchema, int32_t compactionThreshold = 95);
+    virtual void initializeWithColumns(TupleSchema* schema, const std::vector<std::string>& columnNames, bool ownsTupleSchema, int32_t compactionThreshold = 95);
 
 public:
     virtual ~PersistentTable();
@@ -255,16 +254,19 @@ public:
     // ------------------------------------------------------------------
     virtual void deleteAllTuples(bool, bool fallible = true);
 
-    virtual void truncateTable(VoltDBEngine* engine, bool fallible = true);
+    void truncateTable(VoltDBEngine* engine, bool fallible = true);
+
+    void swapTable(PersistentTable* otherTable, VoltDBEngine* engine);
+
     // The fallible flag is used to denote a change to a persistent table
     // which is part of a long transaction that has been vetted and can
     // never fail (e.g. violate a constraint).
     // The initial use case is a live catalog update that changes table schema and migrates tuples
     // and/or adds a materialized view.
     // Constraint checks are bypassed and the change does not make use of "undo" support.
-    void deleteTuple(TableTuple &tuple, bool fallible=true);
+    void deleteTuple(TableTuple& tuple, bool fallible=true);
     // TODO: change meaningless bool return type to void (starting in class Table) and migrate callers.
-    virtual bool insertTuple(TableTuple &tuple);
+    virtual bool insertTuple(TableTuple& tuple);
     // Optimized version of update that only updates specific indexes.
     // The caller knows which indexes MAY need to be updated.
     // Note that inside update tuple the order of sourceTuple and
@@ -278,9 +280,9 @@ public:
     // and/or adds a materialized view.
     // Constraint checks are bypassed and the change does not make use of "undo" support.
     // TODO: change meaningless bool return type to void (starting in class Table) and migrate callers.
-    void updateTupleWithSpecificIndexes(TableTuple &targetTupleToUpdate,
-                                        TableTuple &sourceTupleWithNewValues,
-                                        std::vector<TableIndex*> const &indexesToUpdate,
+    void updateTupleWithSpecificIndexes(TableTuple& targetTupleToUpdate,
+                                        TableTuple& sourceTupleWithNewValues,
+                                        std::vector<TableIndex*> const& indexesToUpdate,
                                         bool fallible=true,
                                         bool updateDRTimestamp=true);
 
@@ -295,29 +297,29 @@ public:
         return static_cast<int>(m_uniqueIndexes.size());
     }
 
-    // returned via shallow vector copy -- seems good enough.
-    const std::vector<TableIndex*>& allIndexes() const { return m_indexes; }
+    // returned via const vector reference -- seems good enough.
+    std::vector<TableIndex*> const& allIndexes() const { return m_indexes; }
 
-    TableIndex *index(std::string name) const;
+    TableIndex* index(const std::string& name) const;
 
-    TableIndex *primaryKeyIndex() const { return m_pkeyIndex; }
+    TableIndex* primaryKeyIndex() const { return m_pkeyIndex; }
 
     void configureIndexStats();
 
     // mutating indexes
-    void addIndex(TableIndex *index);
-    void removeIndex(TableIndex *index);
-    void setPrimaryKeyIndex(TableIndex *index);
+    void addIndex(TableIndex* index);
+    void removeIndex(TableIndex* index);
+    void setPrimaryKeyIndex(TableIndex* index);
 
     // ------------------------------------------------------------------
     // PERSISTENT TABLE OPERATIONS
     // ------------------------------------------------------------------
-    void deleteTupleForSchemaChange(TableTuple &target);
+    void deleteTupleForSchemaChange(TableTuple& target);
 
-    void insertPersistentTuple(TableTuple &source, bool fallible, bool ignoreTupleLimit=false);
+    void insertPersistentTuple(TableTuple& source, bool fallible, bool ignoreTupleLimit=false);
 
     /// This is not used in any production code path -- it is a convenient wrapper used by tests.
-    bool updateTuple(TableTuple &targetTupleToUpdate, TableTuple &sourceTupleWithNewValues) {
+    bool updateTuple(TableTuple& targetTupleToUpdate, TableTuple& sourceTupleWithNewValues) {
         updateTupleWithSpecificIndexes(targetTupleToUpdate, sourceTupleWithNewValues, m_indexes, true);
         return true;
     }
@@ -351,7 +353,7 @@ public:
     /*
      * Find the block a tuple belongs to. Returns TBPtr(NULL) if no block is found.
      */
-    static TBPtr findBlock(char *tuple, TBMap &blocks, int blockSize);
+    static TBPtr findBlock(char* tuple, TBMap& blocks, int blockSize);
 
     int partitionColumn() const { return m_partitionColumn; }
 
@@ -367,9 +369,11 @@ public:
 
     void dropMaterializedView(MaterializedViewTriggerForWrite* targetView);
 
-    std::vector<MaterializedViewTriggerForWrite*>& views() { return m_views; }
+    std::vector<MaterializedViewTriggerForWrite*>& views() { return m_scanViews; }
 
-    TableTuple& copyIntoTempTuple(TableTuple &source) {
+    std::vector<MaterializedViewHandler*> const& allViewHandlers() { return m_viewHandlers; }
+
+    TableTuple& copyIntoTempTuple(TableTuple& source) {
         assert (m_tempTuple.m_data);
         m_tempTuple.copy(source);
         return m_tempTuple;
@@ -382,21 +386,21 @@ public:
     bool activateStream(TableStreamType streamType,
                         int32_t partitionId,
                         CatalogId tableId,
-                        ReferenceSerializeInputBE &serializeIn);
+                        ReferenceSerializeInputBE& serializeIn);
 
     /**
      * Attempt to stream more tuples from the table to the provided
      * output stream.
      * Return remaining tuple count, 0 if done, or TABLE_STREAM_SERIALIZATION_ERROR on error.
      */
-    int64_t streamMore(TupleOutputStreamProcessor &outputStreams,
+    int64_t streamMore(TupleOutputStreamProcessor& outputStreams,
                        TableStreamType streamType,
-                       std::vector<int> &retPositions);
+                       std::vector<int>& retPositions);
 
     /**
      * Process the updates from a recovery message
      */
-    void processRecoveryMessage(RecoveryProtoMsg* message, Pool *pool);
+    void processRecoveryMessage(RecoveryProtoMsg* message, Pool* pool);
 
     /**
      * Create a tree index on the primary key and then iterate it and hash
@@ -462,37 +466,28 @@ public:
         return m_tupleCount == 0;
     }
 
-    virtual int64_t validatePartitioning(TheHashinator *hashinator, int32_t partitionId);
+    virtual int64_t validatePartitioning(TheHashinator* hashinator, int32_t partitionId);
 
-    void truncateTableForUndo(VoltDBEngine * engine, TableCatalogDelegate * tcd, PersistentTable *originalTable);
-    void truncateTableRelease(PersistentTable *originalTable);
+    void truncateTableForUndo(VoltDBEngine*  engine, TableCatalogDelegate* tcd, PersistentTable* originalTable);
+    void truncateTableRelease(PersistentTable* originalTable);
 
-    PersistentTable * getPreTruncateTable() const { return m_preTruncateTable; }
-
-    PersistentTable * currentPreTruncateTable() {
-        if (m_preTruncateTable != NULL) {
-            return m_preTruncateTable;
+    PersistentTable* currentPreSwapTable() {
+        if (m_preSwapTable != NULL) {
+            return m_preSwapTable;
         }
         return this;
     }
 
-    void setPreTruncateTable(PersistentTable * tb) {
-        if (tb->getPreTruncateTable() != NULL) {
-            m_preTruncateTable = tb->getPreTruncateTable();
-        } else {
-            m_preTruncateTable= tb;
-        }
-
-        if (m_preTruncateTable != NULL) {
-            m_preTruncateTable->incrementRefcount();
-        }
+    void setPreSwapTable(PersistentTable*  tb) {
+        m_preSwapTable = (tb->m_preSwapTable == NULL) ?
+            tb : tb->m_preSwapTable;
+        m_preSwapTable->incrementRefcount();
     }
 
-    void unsetPreTruncateTable() {
-        PersistentTable * prev = this->m_preTruncateTable;
-        if (prev != NULL) {
-            this->m_preTruncateTable = NULL;
-            prev->decrementRefcount();
+    void unsetPreSwapTable() {
+        if (m_preSwapTable != NULL) {
+            m_preSwapTable->decrementRefcount();
+            m_preSwapTable = NULL;
         }
     }
 
@@ -523,7 +518,7 @@ public:
 
     std::pair<const TableIndex*, uint32_t> getUniqueIndexForDR();
 
-    MaterializedViewHandler *materializedViewHandler() const { return m_mvHandler; }
+    MaterializedViewHandler* materializedViewHandler() const { return m_mvHandler; }
     Table* deltaTable() const { return m_deltaTable; }
     bool isDeltaTableActive() { return m_deltaTableActive; }
 
@@ -534,7 +529,7 @@ public:
 
 private:
     // Zero allocation size uses defaults.
-    PersistentTable(int partitionColumn, const char *signature, bool isMaterialized, int tableAllocationTargetSize = 0, int tuplelimit = INT_MAX, bool drEnabled = false);
+    PersistentTable(int partitionColumn, const char* signature, bool isMaterialized, int tableAllocationTargetSize = 0, int tuplelimit = INT_MAX, bool drEnabled = false);
 
     /**
      * Prepare table for streaming from serialized data (internal for tests).
@@ -544,7 +539,7 @@ private:
     bool activateWithCustomStreamer(TableStreamType streamType,
                                     boost::shared_ptr<TableStreamerInterface> tableStreamer,
                                     CatalogId tableId,
-                                    std::vector<std::string> &predicateStrings,
+                                    std::vector<std::string>& predicateStrings,
                                     bool skipInternalActivation);
 
     size_t getSnapshotPendingBlockCount() const {
@@ -578,53 +573,53 @@ private:
         }
     }
 
-    void nextFreeTuple(TableTuple *tuple);
-    bool doCompactionWithinSubset(TBBucketPtrVector *bucketVector);
+    void nextFreeTuple(TableTuple* tuple);
+    bool doCompactionWithinSubset(TBBucketPtrVector* bucketVector);
     bool doForcedCompaction();  // Returns true if a compaction was performed
 
-    void insertIntoAllIndexes(TableTuple *tuple);
-    void deleteFromAllIndexes(TableTuple *tuple);
-    void tryInsertOnAllIndexes(TableTuple *tuple, TableTuple *conflict);
-    bool checkUpdateOnUniqueIndexes(TableTuple &targetTupleToUpdate,
-                                    const TableTuple &sourceTupleWithNewValues,
-                                    std::vector<TableIndex*> const &indexesToUpdate);
+    void insertIntoAllIndexes(TableTuple* tuple);
+    void deleteFromAllIndexes(TableTuple* tuple);
+    void tryInsertOnAllIndexes(TableTuple* tuple, TableTuple* conflict);
+    bool checkUpdateOnUniqueIndexes(TableTuple& targetTupleToUpdate,
+                                    const TableTuple& sourceTupleWithNewValues,
+                                    std::vector<TableIndex*> const& indexesToUpdate);
 
-    bool checkNulls(TableTuple &tuple) const;
+    bool checkNulls(TableTuple& tuple) const;
 
     void notifyBlockWasCompactedAway(TBPtr block);
 
     // Call-back from TupleBlock::merge() for each tuple moved.
     virtual void notifyTupleMovement(TBPtr sourceBlock, TBPtr targetBlock,
-                                     TableTuple &sourceTuple, TableTuple &targetTuple);
+                                     TableTuple& sourceTuple, TableTuple& targetTuple);
 
-    void swapTuples(TableTuple &sourceTupleWithNewValues, TableTuple &destinationTuple);
+    void swapTuples(TableTuple& sourceTupleWithNewValues, TableTuple& destinationTuple);
 
     // The source tuple is used to create the ConstraintFailureException if one
     // occurs. In case of exception, target tuple should be released, but the
     // source tuple's memory should still be retained until the exception is
     // handled.
-    void insertTupleCommon(TableTuple &source, TableTuple &target, bool fallible, bool shouldDRStream = true);
-    void insertTupleForUndo(char *tuple);
+    void insertTupleCommon(TableTuple& source, TableTuple& target, bool fallible, bool shouldDRStream = true);
+    void insertTupleForUndo(char* tuple);
     void updateTupleForUndo(char* targetTupleToUpdate,
                             char* sourceTupleWithNewValues,
                             bool revertIndexes);
     void deleteTupleForUndo(char* tupleData, bool skipLookup = false);
     void deleteTupleRelease(char* tuple);
-    void deleteTupleFinalize(TableTuple &tuple);
+    void deleteTupleFinalize(TableTuple& tuple);
     /**
      * Normally this will return the tuple storage to the free list.
      * In the memcheck build it will return the storage to the heap.
      */
-    void deleteTupleStorage(TableTuple &tuple, TBPtr block = TBPtr(NULL), bool deleteLastEmptyBlock = false);
+    void deleteTupleStorage(TableTuple& tuple, TBPtr block = TBPtr(NULL), bool deleteLastEmptyBlock = false);
 
     /*
      * Implemented by persistent table and called by Table::loadTuplesFrom
      * to do additional processing for views and Export
      */
-    virtual void processLoadedTuple(TableTuple &tuple,
-                                    ReferenceSerializeOutput *uniqueViolationOutput,
-                                    int32_t &serializedTupleCount,
-                                    size_t &tupleCountPosition,
+    virtual void processLoadedTuple(TableTuple& tuple,
+                                    ReferenceSerializeOutput* uniqueViolationOutput,
+                                    int32_t& serializedTupleCount,
+                                    size_t& tupleCountPosition,
                                     bool shouldDRStreamRows);
 
     enum LookupType {
@@ -636,7 +631,7 @@ private:
 
     TBPtr allocateNextBlock();
 
-    inline AbstractDRTupleStream *getDRTupleStream(ExecutorContext *ec) {
+    inline AbstractDRTupleStream* getDRTupleStream(ExecutorContext* ec) {
         if (isReplicatedTable()) {
             return ec->drReplicatedStream();
         } else {
@@ -644,19 +639,67 @@ private:
         }
     }
 
-    void setDRTimestampForTuple(ExecutorContext* ec, TableTuple &tuple, bool update);
+    void setDRTimestampForTuple(ExecutorContext* ec, TableTuple& tuple, bool update);
 
     void computeSmallestUniqueIndex();
 
-    void addViewHandler(MaterializedViewHandler *viewHandler);
-    void dropViewHandler(MaterializedViewHandler *viewHandler);
+    void addViewHandler(MaterializedViewHandler* viewHandler);
+    void dropViewHandler(MaterializedViewHandler* viewHandler);
     // Mark all the view handlers referencing this table as dirty so they will be
     // recreated when being visited.
     // We use this only when a table index is added / dropped.
     void polluteViews();
     // Insert the source tuple into this table's delta table.
     // If there is no delta table affiliated with this table, then take no action.
-    void insertTupleIntoDeltaTable(TableTuple &source, bool fallible);
+    void insertTupleIntoDeltaTable(TableTuple& source, bool fallible);
+
+    //
+    // SWAP TABLE helpers
+    //
+
+    typedef std::vector<TableIndex*> const TableIndexVector;
+    typedef std::vector<MaterializedViewTriggerForWrite*> const ScanViewVector;
+    typedef std::vector<MaterializedViewHandler*> const JoinViewVector;
+
+    void swapTable
+           (PersistentTable* otherTable, VoltDBEngine* engine,
+            TableIndexVector& theIndexesToSwap,
+            TableIndexVector& otherIndexesToSwap,
+            TableIndexVector& theIndexesToRepopulate,
+            TableIndexVector& otherIndexesToRepopulate,
+            ScanViewVector& theScanViewsToSwap,
+            ScanViewVector& otherScanViewsToSwap,
+            ScanViewVector& theScanViewsToRepopulate,
+            ScanViewVector& otherScanViewsToRepopulate,
+            JoinViewVector& theJoinViewsToSwap,
+            JoinViewVector& otherJoinViewsToSwap,
+            JoinViewVector& theJoinViewsToRepopulate,
+            JoinViewVector& otherJoinViewsToRepopulate);
+
+    void swapTableIndexes
+           (PersistentTable* otherTable,
+            TableIndexVector& theIndexesToSwap,
+            TableIndexVector& otherIndexesToSwap);
+
+    void repopulateSwappedTableIndexes
+           (PersistentTable* otherTable,
+            TableIndexVector& theIndexesToRepopulate,
+            TableIndexVector& otherIndexesToRepopulate);
+
+    void swapTableViews
+           (PersistentTable* otherTable,
+            VoltDBEngine* engine,
+            ScanViewVector& theScanViewsToSwap,
+            ScanViewVector& otherScanViewsToSwap,
+            JoinViewVector& theJoinViewsToSwap,
+            JoinViewVector& otherJoinViewsToSwap);
+
+    void repopulateSwappedTableViews
+           (PersistentTable* otherTable,
+            ScanViewVector& theScanViewsToRepopulate,
+            ScanViewVector& otherScanViewsToRepopulate,
+            JoinViewVector& theJoinViewsToRepopulate,
+            JoinViewVector& otherJoinViewsToRepopulate);
 
     // CONSTRAINTS
     std::vector<bool> m_allowNulls;
@@ -672,7 +715,7 @@ private:
     boost::shared_ptr<ExecutorVector> m_purgeExecutorVector;
 
     // list of materialized views that are sourced from this table
-    std::vector<MaterializedViewTriggerForWrite*> m_views;
+    std::vector<MaterializedViewTriggerForWrite*> m_scanViews;
 
     // STATS
     PersistentTableStats m_stats;
@@ -706,8 +749,8 @@ private:
     // Surgeon passed to classes requiring "deep" access to avoid excessive friendship.
     PersistentTableSurgeon m_surgeon;
 
-    // The original table from the first truncated table
-    PersistentTable * m_preTruncateTable;
+    // The original table prior to any swaps or truncates in the current transaction.
+    PersistentTable*  m_preSwapTable;
 
     //Is this a materialized view?
     bool m_isMaterialized;
@@ -726,10 +769,10 @@ private:
     // indexes
     std::vector<TableIndex*> m_indexes;
     std::vector<TableIndex*> m_uniqueIndexes;
-    TableIndex *m_pkeyIndex;
+    TableIndex* m_pkeyIndex;
 
     // If I myself am a view table, I need to maintain a handler to handle the view update work.
-    MaterializedViewHandler *m_mvHandler;
+    MaterializedViewHandler* m_mvHandler;
     // If I am a source table of a view, I will notify all the relevant view handlers
     // when an update is needed.
     std::vector<MaterializedViewHandler*> m_viewHandlers;
@@ -740,16 +783,16 @@ private:
     // the delta table instead of the original table.
     // WARNING: Do not manually flip this m_deltaTableActive flag, use ScopedDeltaTableContext
     // (currently defined in MaterializedViewHandler.h) instead.
-    PersistentTable *m_deltaTable;
+    PersistentTable* m_deltaTable;
     bool m_deltaTableActive;
 };
 
-inline PersistentTableSurgeon::PersistentTableSurgeon(PersistentTable &table) :
+inline PersistentTableSurgeon::PersistentTableSurgeon(PersistentTable& table) :
     m_table(table),
     m_indexingComplete(false)
 { }
 
-inline TBMap &PersistentTableSurgeon::getData() const {
+inline TBMap& PersistentTableSurgeon::getData() const {
     return m_table.m_data;
 }
 
@@ -757,7 +800,7 @@ inline PersistentTable& PersistentTableSurgeon::getTable() {
     return m_table;
 }
 
-inline void PersistentTableSurgeon::insertTupleForUndo(char *tuple) {
+inline void PersistentTableSurgeon::insertTupleForUndo(char* tuple) {
     m_table.insertTupleForUndo(tuple);
 }
 
@@ -767,7 +810,7 @@ inline void PersistentTableSurgeon::updateTupleForUndo(char* targetTupleToUpdate
     m_table.updateTupleForUndo(targetTupleToUpdate, sourceTupleWithNewValues, revertIndexes);
 }
 
-inline void PersistentTableSurgeon::deleteTuple(TableTuple &tuple, bool fallible) {
+inline void PersistentTableSurgeon::deleteTuple(TableTuple& tuple, bool fallible) {
     m_table.deleteTuple(tuple, fallible);
 }
 
@@ -779,7 +822,7 @@ inline void PersistentTableSurgeon::deleteTupleRelease(char* tuple) {
     m_table.deleteTupleRelease(tuple);
 }
 
-inline void PersistentTableSurgeon::deleteTupleStorage(TableTuple &tuple, TBPtr block) {
+inline void PersistentTableSurgeon::deleteTupleStorage(TableTuple& tuple, TBPtr block) {
     m_table.deleteTupleStorage(tuple, block);
 }
 
@@ -841,26 +884,26 @@ inline void PersistentTableSurgeon::clearIndex() {
     m_indexingComplete = false;
 }
 
-inline void PersistentTableSurgeon::printIndex(std::ostream &os, int32_t limit) const {
+inline void PersistentTableSurgeon::printIndex(std::ostream& os, int32_t limit) const {
     assert (m_index != NULL);
     m_index->printKeys(os,limit,m_table.m_schema,m_table);
 }
 
-inline ElasticHash PersistentTableSurgeon::generateTupleHash(TableTuple &tuple) const {
+inline ElasticHash PersistentTableSurgeon::generateTupleHash(TableTuple& tuple) const {
     return tuple.getNValue(m_table.partitionColumn()).murmurHash3();
 }
 
-inline bool PersistentTableSurgeon::indexHas(TableTuple &tuple) const {
+inline bool PersistentTableSurgeon::indexHas(TableTuple& tuple) const {
     assert (m_index != NULL);
     return m_index->has(m_table, tuple);
 }
 
-inline bool PersistentTableSurgeon::indexAdd(TableTuple &tuple) {
+inline bool PersistentTableSurgeon::indexAdd(TableTuple& tuple) {
     assert (m_index != NULL);
     return m_index->add(m_table, tuple);
 }
 
-inline bool PersistentTableSurgeon::indexRemove(TableTuple &tuple) {
+inline bool PersistentTableSurgeon::indexRemove(TableTuple& tuple) {
     assert (m_index != NULL);
     return m_index->remove(m_table, tuple);
 }
@@ -920,14 +963,14 @@ inline bool PersistentTableSurgeon::hasStreamType(TableStreamType streamType) co
 }
 
 inline boost::shared_ptr<ElasticIndexTupleRangeIterator>
-PersistentTableSurgeon::getIndexTupleRangeIterator(const ElasticIndexHashRange &range) {
+PersistentTableSurgeon::getIndexTupleRangeIterator(const ElasticIndexHashRange& range) {
     assert(m_index != NULL);
     assert(m_table.m_schema != NULL);
     return boost::shared_ptr<ElasticIndexTupleRangeIterator>(
             new ElasticIndexTupleRangeIterator(*m_index, *m_table.m_schema, range));
 }
 
-inline void PersistentTable::deleteTupleStorage(TableTuple &tuple, TBPtr block,
+inline void PersistentTable::deleteTupleStorage(TableTuple& tuple, TBPtr block,
                                                 bool deleteLastEmptyBlock) {
     // May not delete an already deleted tuple.
     assert(tuple.isActive());
@@ -991,7 +1034,7 @@ inline void PersistentTable::deleteTupleStorage(TableTuple &tuple, TBPtr block,
     }
 }
 
-inline TBPtr PersistentTable::findBlock(char *tuple, TBMap &blocks, int blockSize) {
+inline TBPtr PersistentTable::findBlock(char* tuple, TBMap& blocks, int blockSize) {
     if (!blocks.empty()) {
         TBMapI i = blocks.lower_bound(tuple);
 
@@ -1032,6 +1075,6 @@ inline TableTuple PersistentTable::lookupTupleForDR(TableTuple tuple) {
     return lookupTuple(tuple, LOOKUP_FOR_DR);
 }
 
-}
+}// namespace voltdb
 
 #endif

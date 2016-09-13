@@ -90,6 +90,8 @@
 #include <cstdio>
 #include <sstream>
 
+using namespace std;
+
 namespace voltdb {
 void* keyTupleStorage = NULL;
 TableTuple keyTuple;
@@ -124,6 +126,7 @@ PersistentTable::PersistentTable(int partitionColumn, const char * signature, bo
     m_failedCompactionCount(0),
     m_invisibleTuplesPendingDeleteCount(0),
     m_surgeon(*this),
+    m_preSwapTable(NULL),
     m_isMaterialized(isMaterialized),
     m_drEnabled(drEnabled),
     m_noAvailableUniqueIndex(false),
@@ -143,12 +146,11 @@ PersistentTable::PersistentTable(int partitionColumn, const char * signature, bo
         m_blocksPendingSnapshotLoad.push_back(TBBucketPtr(new TBBucket()));
     }
 
-    m_preTruncateTable = NULL;
     ::memcpy(&m_signature, signature, 20);
 }
 
 void PersistentTable::initializeWithColumns(TupleSchema *schema,
-                                            const std::vector<std::string> &columnNames,
+                                            const vector<string> &columnNames,
                                             bool ownsTupleSchema,
                                             int32_t compactionThreshold)
 {
@@ -196,8 +198,8 @@ PersistentTable::~PersistentTable() {
 
     // note this class has ownership of the views, even if they
     // were allocated by VoltDBEngine
-    for (int i = 0; i < m_views.size(); i++) {
-        delete m_views[i];
+    for (int i = 0; i < m_scanViews.size(); i++) {
+        delete m_scanViews[i];
     }
 
     // clean up indexes
@@ -224,9 +226,9 @@ void PersistentTable::nextFreeTuple(TableTuple *tuple) {
     // In the memcheck it uses the heap instead of a free list to help Valgrind.
     if (!m_blocksWithSpace.empty()) {
         VOLT_TRACE("GRABBED FREE TUPLE!\n");
-        stx::btree_set<TBPtr >::iterator begin = m_blocksWithSpace.begin();
+        auto begin = m_blocksWithSpace.begin();
         TBPtr block = (*begin);
-        std::pair<char*, int> retval = block->nextFreeTuple();
+        pair<char*, int> retval = block->nextFreeTuple();
 
         /**
          * Check to see if the block needs to move to a new bucket
@@ -262,7 +264,7 @@ void PersistentTable::nextFreeTuple(TableTuple *tuple) {
     // get free tuple
     assert (m_columnCount == tuple->sizeInValues());
 
-    std::pair<char*, int> retval = block->nextFreeTuple();
+    pair<char*, int> retval = block->nextFreeTuple();
 
     /**
      * Check to see if the block needs to move to a new bucket
@@ -270,12 +272,12 @@ void PersistentTable::nextFreeTuple(TableTuple *tuple) {
     if (retval.second != NO_NEW_BUCKET_INDEX) {
         //Check if the block goes into the pending snapshot set of buckets
         if (m_blocksPendingSnapshot.find(block) != m_blocksPendingSnapshot.end()) {
-            //std::cout << "Swapping block to nonsnapshot bucket " << static_cast<void*>(block.get()) << " to bucket " << retval.second << std::endl;
+            //cout << "Swapping block to nonsnapshot bucket " << static_cast<void*>(block.get()) << " to bucket " << retval.second << endl;
             block->swapToBucket(m_blocksPendingSnapshotLoad[retval.second]);
         //Now check if it goes in with the others
         }
         else if (m_blocksNotPendingSnapshot.find(block) != m_blocksNotPendingSnapshot.end()) {
-            //std::cout << "Swapping block to snapshot bucket " << static_cast<void*>(block.get()) << " to bucket " << retval.second << std::endl;
+            //cout << "Swapping block to snapshot bucket " << static_cast<void*>(block.get()) << " to bucket " << retval.second << endl;
             block->swapToBucket(m_blocksNotPendingSnapshotLoad[retval.second]);
         }
         else {
@@ -325,10 +327,10 @@ void PersistentTable::truncateTableForUndo(VoltDBEngine * engine, TableCatalogDe
 
     if (originalTable->m_tableStreamer != NULL) {
         // Elastic Index may complete when undo Truncate
-        unsetPreTruncateTable();
+        unsetPreSwapTable();
     }
 
-    std::vector<MaterializedViewTriggerForWrite*> views = originalTable->views();
+    vector<MaterializedViewTriggerForWrite*> views = originalTable->views();
     // reset all view table pointers
     BOOST_FOREACH(MaterializedViewTriggerForWrite* originalView, views) {
         PersistentTable * targetTable = originalView->targetTable();
@@ -352,19 +354,19 @@ void PersistentTable::truncateTableRelease(PersistentTable *originalTable) {
     m_invisibleTuplesPendingDeleteCount = 0;
 
     if (originalTable->m_tableStreamer != NULL) {
-        std::stringstream message;
+        stringstream message;
         message << "Transfering table stream after truncation of table ";
         message << name() << " partition " << originalTable->m_tableStreamer->getPartitionID() << '\n';
-        std::string str = message.str();
+        string str = message.str();
         LogManager::getThreadLogger(LOGGERID_HOST)->log(voltdb::LOGLEVEL_INFO, &str);
 
         originalTable->m_tableStreamer->cloneForTruncatedTable(m_surgeon);
 
-        unsetPreTruncateTable();
+        unsetPreSwapTable();
     }
 
     // Single table view.
-    std::vector<MaterializedViewTriggerForWrite*> views = originalTable->views();
+    vector<MaterializedViewTriggerForWrite*> views = originalTable->views();
     // reset all view table pointers
     BOOST_FOREACH(MaterializedViewTriggerForWrite* originalView, views) {
         PersistentTable * targetTable = originalView->targetTable();
@@ -389,9 +391,9 @@ void PersistentTable::truncateTable(VoltDBEngine* engine, bool fallible) {
     // this needs more work - ENG-10323.
     if (m_isMaterialized) {
         /* // enable to debug
-        std::cout << "DEBUG: truncating view table (retail) "
+        cout << "DEBUG: truncating view table (retail) "
                   << activeTupleCount()
-                  << " tuples in " << name() << std::endl;
+                  << " tuples in " << name() << endl;
         // */
         deleteAllTuples(true, fallible);
         return;
@@ -411,9 +413,9 @@ void PersistentTable::truncateTable(VoltDBEngine* engine, bool fallible) {
     // v6.6.
     if ( ! m_viewHandlers.empty()) {
         /* // enable to debug
-        std::cout << "DEBUG: truncating source of join view table (retail) "
+        cout << "DEBUG: truncating source of join view table (retail) "
                   << activeTupleCount()
-                  << " tuples in " << name() << std::endl;
+                  << " tuples in " << name() << endl;
         // */
         deleteAllTuples(true, fallible);
         return;
@@ -439,15 +441,15 @@ void PersistentTable::truncateTable(VoltDBEngine* engine, bool fallible) {
         // cut-off for table with views
         const double tableWithViewsLFCutoffForTrunc = 0.015416;
 
-        bool noView = m_views.empty() && m_viewHandlers.empty();
+        bool noView = m_scanViews.empty() && m_viewHandlers.empty();
         const double cutoff = noView ? tableWithNoViewLFCutoffForTrunc
                                      : tableWithViewsLFCutoffForTrunc;
         double blockLoadFactor = m_data.begin().data()->loadFactor();
         if (blockLoadFactor <= cutoff) {
             /* // enable to debug
-            std::cout << "DEBUG: truncating (retail) "
+            cout << "DEBUG: truncating (retail) "
                       << activeTupleCount()
-                      << " tuples in " << name() << std::endl;
+                      << " tuples in " << name() << endl;
             // */
             deleteAllTuples(true, fallible);
             return;
@@ -466,11 +468,11 @@ void PersistentTable::truncateTable(VoltDBEngine* engine, bool fallible) {
     if (m_tableStreamer != NULL && m_tableStreamer->hasStreamType(TABLE_STREAM_ELASTIC_INDEX)) {
         // There is an Elastic Index work going on and it should continue access the old table.
         // Add one reference count to keep the original table.
-        emptyTable->setPreTruncateTable(this);
+        emptyTable->setPreSwapTable(this);
     }
 
     // add matView
-    BOOST_FOREACH(MaterializedViewTriggerForWrite* originalView, m_views) {
+    BOOST_FOREACH(MaterializedViewTriggerForWrite* originalView, m_scanViews) {
         PersistentTable * targetTable = originalView->targetTable();
         TableCatalogDelegate * targetTcd =  engine->getTableDelegate(targetTable->name());
         catalog::Table *catalogViewTable = engine->getCatalogTable(targetTable->name());
@@ -545,6 +547,426 @@ void PersistentTable::truncateTable(VoltDBEngine* engine, bool fallible) {
     }
 }
 
+struct Swappability {
+    vector<TableIndex*>* m_theIndexesToSwap;
+    vector<TableIndex*>* m_otherIndexesToSwap;
+    vector<TableIndex*>* m_theIndexesToRepopulate;
+    vector<TableIndex*>* m_otherIndexesToRepopulate;
+    vector<MaterializedViewTriggerForWrite*>* m_theScanViewsToSwap;
+    vector<MaterializedViewTriggerForWrite*>* m_otherScanViewsToSwap;
+    vector<MaterializedViewTriggerForWrite*>* m_theScanViewsToRepopulate;
+    vector<MaterializedViewTriggerForWrite*>* m_otherScanViewsToRepopulate;
+    vector<MaterializedViewHandler*>* m_theJoinViewsToSwap;
+    vector<MaterializedViewHandler*>* m_otherJoinViewsToSwap;
+    vector<MaterializedViewHandler*>* m_theJoinViewsToRepopulate;
+    vector<MaterializedViewHandler*>* m_otherJoinViewsToRepopulate;
+
+    void init() {
+        m_theIndexesToSwap = new vector<TableIndex*>();
+        m_otherIndexesToSwap = new vector<TableIndex*>();
+        m_theIndexesToRepopulate = new vector<TableIndex*>();
+        m_otherIndexesToRepopulate = new vector<TableIndex*>();
+        m_theScanViewsToSwap = new vector<MaterializedViewTriggerForWrite*>();
+        m_otherScanViewsToSwap = new vector<MaterializedViewTriggerForWrite*>();
+        m_theScanViewsToRepopulate = new vector<MaterializedViewTriggerForWrite*>();
+        m_otherScanViewsToRepopulate = new vector<MaterializedViewTriggerForWrite*>();
+        m_theJoinViewsToSwap = new vector<MaterializedViewHandler*>();
+        m_otherJoinViewsToSwap = new vector<MaterializedViewHandler*>();
+        m_theJoinViewsToRepopulate = new vector<MaterializedViewHandler*>();
+        m_otherJoinViewsToRepopulate = new vector<MaterializedViewHandler*>();
+    }
+
+    void analyze(PersistentTable* theTable, PersistentTable* otherTable) {
+        init();
+        analyzeIndexes(theTable, otherTable);
+        analyzeScanViews(theTable, otherTable);
+        analyzeJoinViews(theTable, otherTable);
+    }
+
+    void analyzeIndexes(PersistentTable* theTable, PersistentTable* otherTable) {
+        const auto& theIndexes = theTable->allIndexes();
+        const auto& otherIndexes = otherTable->allIndexes();
+        auto indexCount = theIndexes.size();
+        for (int ii = 0; ii < indexCount; ++ii) {
+            auto theIndex = theIndexes[ii];
+            auto otherIndex = otherIndexes[ii];
+//FIXME: USE THE CORRECT CRITERIA -- NOT NAME!
+            auto theSpec = /*TableCatalogDelegate::getIndexIdString(otherIndex->getScheme());*/(theIndex->getName());
+            auto otherSpec = /*TableCatalogDelegate::getIndexIdString(otherIndex->getScheme());*/(otherIndex->getName());
+            if (theSpec == otherSpec) {
+                // Add the swappable pair.
+                m_theIndexesToSwap->push_back(theIndex);
+                m_otherIndexesToSwap->push_back(otherIndex);
+                continue;
+            }
+
+            bool unmatched;
+
+            unmatched = true;
+            auto otherBacklogCount = m_otherIndexesToRepopulate->size();
+            for (int jj = 0; jj < otherBacklogCount; ++jj) {
+                auto otherAltIndex = (*m_otherIndexesToRepopulate)[jj];
+//FIXME: USE THE CORRECT CRITERIA -- NOT NAME!
+                auto otherAltSpec = /**/(otherAltIndex->getName());;
+                if (theSpec == otherAltSpec) {
+                    // Add the swappable pair.
+                    m_theIndexesToSwap->push_back(theIndex);
+                    m_otherIndexesToSwap->push_back(otherAltIndex);
+
+                    // Take the matched other entry out of the backlog.
+                    if (jj != otherBacklogCount - 1) {
+                        (*m_otherIndexesToRepopulate)[jj] =
+                            (*m_otherIndexesToRepopulate)[otherBacklogCount - 1];
+                    }
+                    m_otherIndexesToRepopulate->pop_back();
+                    unmatched = false;
+                    break;
+                }
+            }
+            if (unmatched) {
+                m_theIndexesToRepopulate->push_back(theIndex);
+            }
+
+            unmatched = true;
+            auto theBacklogCount = m_theIndexesToRepopulate->size();
+            for (int jj = 0; jj < theBacklogCount; ++jj) {
+                auto theAltIndex = (*m_theIndexesToRepopulate)[jj];
+//FIXME: USE THE CORRECT CRITERIA -- NOT NAME!
+                auto theAltSpec = /**/(theAltIndex->getName());;
+                if (theAltSpec == otherSpec) {
+                    // Add the swappable pair.
+                    m_theIndexesToSwap->push_back(theAltIndex);
+                    m_otherIndexesToSwap->push_back(otherIndex);
+
+                    // Take the matched entry out of the backlog.
+                    if (jj != theBacklogCount - 1) {
+                        (*m_theIndexesToRepopulate)[jj] =
+                            (*m_theIndexesToRepopulate)[theBacklogCount - 1];
+                    }
+                    m_theIndexesToRepopulate->pop_back();
+                    unmatched = false;
+                    break;
+                }
+            }
+            if (unmatched) {
+                m_otherIndexesToRepopulate->push_back(otherIndex);
+            }
+        }
+    }
+
+    void analyzeScanViews(PersistentTable* theTable, PersistentTable* otherTable) {
+        const auto& theScanViews = theTable->views();
+        const auto& otherScanViews = otherTable->views();
+        auto viewCount = theScanViews.size();
+        for (int ii = 0; ii < viewCount; ++ii) {
+            auto theScanView = theScanViews[ii];
+            auto otherScanView = otherScanViews[ii];
+            auto theSpec = theScanView->getSwappableSQL();
+            auto otherSpec = otherScanView->getSwappableSQL();
+            if (theSpec == otherSpec) {
+                // Add the swappable pair.
+                m_theScanViewsToSwap->push_back(theScanView);
+                m_otherScanViewsToSwap->push_back(otherScanView);
+                continue;
+            }
+
+            bool unmatched;
+
+            unmatched = true;
+            auto otherBacklogCount = m_otherScanViewsToRepopulate->size();
+            for (int jj = 0; jj < otherBacklogCount; ++jj) {
+                auto otherAltScanView = (*m_otherScanViewsToRepopulate)[jj];
+                auto otherAltSpec = otherAltScanView->getSwappableSQL();
+                if (theSpec == otherAltSpec) {
+                    // Add the swappable pair.
+                    m_theScanViewsToSwap->push_back(theScanView);
+                    m_otherScanViewsToSwap->push_back(otherAltScanView);
+
+                    // Take the matched other entry out of the backlog.
+                    if (jj != otherBacklogCount - 1) {
+                        (*m_otherScanViewsToRepopulate)[jj] =
+                            (*m_otherScanViewsToRepopulate)[otherBacklogCount - 1];
+                    }
+                    m_otherScanViewsToRepopulate->pop_back();
+                    unmatched = false;
+                    break;
+                }
+            }
+            if (unmatched) {
+                m_theScanViewsToRepopulate->push_back(theScanView);
+            }
+
+            unmatched = true;
+            auto theBacklogCount = m_theScanViewsToRepopulate->size();
+            for (int jj = 0; jj < theBacklogCount; ++jj) {
+                auto theAltScanView = (*m_theScanViewsToRepopulate)[jj];
+                auto theAltSpec = theAltScanView->getSwappableSQL();
+                if (theAltSpec == otherSpec) {
+                    // Add the swappable pair.
+                    m_theScanViewsToSwap->push_back(theAltScanView);
+                    m_otherScanViewsToSwap->push_back(otherScanView);
+
+                    // Take the matched entry out of the backlog.
+                    if (jj != theBacklogCount - 1) {
+                        (*m_theScanViewsToRepopulate)[jj] =
+                            (*m_theScanViewsToRepopulate)[theBacklogCount - 1];
+                    }
+                    m_theScanViewsToRepopulate->pop_back();
+                    unmatched = false;
+                    break;
+                }
+            }
+            if (unmatched) {
+                m_otherScanViewsToRepopulate->push_back(otherScanView);
+            }
+        }
+    }
+
+    void analyzeJoinViews(PersistentTable* theTable, PersistentTable* otherTable) {
+        const auto& theJoinViews = theTable->allViewHandlers();
+        const auto& otherJoinViews = otherTable->allViewHandlers();
+        auto viewCount = theJoinViews.size();
+        for (int ii = 0; ii < viewCount; ++ii) {
+            auto theJoinView = theJoinViews[ii];
+            auto otherJoinView = otherJoinViews[ii];
+            auto theSpec = theJoinView->getSwappableSQL(theTable);
+            auto otherSpec = otherJoinView->getSwappableSQL(otherTable);
+            if (theSpec == otherSpec) {
+                // Add the swappable pair.
+                m_theJoinViewsToSwap->push_back(theJoinView);
+                m_otherJoinViewsToSwap->push_back(otherJoinView);
+                continue;
+            }
+
+            bool unmatched;
+
+            unmatched = true;
+            auto otherBacklogCount = m_otherJoinViewsToRepopulate->size();
+            for (int jj = 0; jj < otherBacklogCount; ++jj) {
+                auto otherAltJoinView = (*m_otherJoinViewsToRepopulate)[jj];
+                auto otherAltSpec = otherAltJoinView->getSwappableSQL(otherTable);
+                if (theSpec == otherAltSpec) {
+                    // Add the swappable pair.
+                    m_theJoinViewsToSwap->push_back(theJoinView);
+                    m_otherJoinViewsToSwap->push_back(otherAltJoinView);
+
+                    // Take the matched other entry out of the backlog.
+                    if (jj != otherBacklogCount - 1) {
+                        (*m_otherJoinViewsToRepopulate)[jj] =
+                            (*m_otherJoinViewsToRepopulate)[otherBacklogCount - 1];
+                    }
+                    m_otherJoinViewsToRepopulate->pop_back();
+                    unmatched = false;
+                    break;
+                }
+            }
+            if (unmatched) {
+                m_theJoinViewsToRepopulate->push_back(theJoinView);
+            }
+
+            unmatched = true;
+            auto theBacklogCount = m_theJoinViewsToRepopulate->size();
+            for (int jj = 0; jj < theBacklogCount; ++jj) {
+                auto theAltJoinView = (*m_theJoinViewsToRepopulate)[jj];
+                auto theAltSpec = theAltJoinView->getSwappableSQL(theTable);
+                if (theAltSpec == otherSpec) {
+                    // Add the swappable pair.
+                    m_theJoinViewsToSwap->push_back(theAltJoinView);
+                    m_otherJoinViewsToSwap->push_back(otherJoinView);
+
+                    // Take the matched entry out of the backlog.
+                    if (jj != theBacklogCount - 1) {
+                        (*m_theJoinViewsToRepopulate)[jj] =
+                            (*m_theJoinViewsToRepopulate)[theBacklogCount - 1];
+                    }
+                    m_theJoinViewsToRepopulate->pop_back();
+                    unmatched = false;
+                    break;
+                }
+            }
+            if (unmatched) {
+                m_otherJoinViewsToRepopulate->push_back(otherJoinView);
+            }
+        }
+    }
+
+};
+
+void PersistentTable::swapTable(PersistentTable* otherTable,
+        VoltDBEngine* engine) {
+    Swappability analysis;
+    analysis.analyze(this, otherTable);
+    swapTable
+           (otherTable, engine,
+            *analysis.m_theIndexesToSwap,
+            *analysis.m_otherIndexesToSwap,
+            *analysis.m_theIndexesToRepopulate,
+            *analysis.m_otherIndexesToRepopulate,
+            *analysis.m_theScanViewsToSwap,
+            *analysis.m_otherScanViewsToSwap,
+            *analysis.m_theScanViewsToRepopulate,
+            *analysis.m_otherScanViewsToRepopulate,
+            *analysis.m_theJoinViewsToSwap,
+            *analysis.m_otherJoinViewsToSwap,
+            *analysis.m_theJoinViewsToRepopulate,
+            *analysis.m_otherJoinViewsToRepopulate);
+}
+
+void PersistentTable::swapTable
+       (PersistentTable* otherTable,
+        VoltDBEngine* engine,
+        TableIndexVector& theIndexesToSwap,
+        TableIndexVector& otherIndexesToSwap,
+        TableIndexVector& theIndexesToRepopulate,
+        TableIndexVector& otherIndexesToRepopulate,
+        ScanViewVector& scanViewsToSwap,
+        ScanViewVector& otherScanViewsToSwap,
+        ScanViewVector& scanViewsToRepopulate,
+        ScanViewVector& otherScanViewsToRepopulate,
+        JoinViewVector& joinViewsToSwap,
+        JoinViewVector& otherJoinViewsToSwap,
+        JoinViewVector& joinViewsToRepopulate,
+        JoinViewVector& otherJoinViewsToRepopulate) {
+    if (isPersistentTableEmpty() && otherTable->isPersistentTableEmpty()) {
+        return;
+    }
+
+    auto tcd1 = engine->getTableDelegate(m_name);
+    tcd1->setTable(otherTable);
+    auto tcd2 = engine->getTableDelegate(otherTable->m_name);
+    tcd2->setTable(this);
+
+    auto preSwapTable1 = currentPreSwapTable();
+    auto preSwapTable2 = otherTable->currentPreSwapTable();
+    m_preSwapTable = preSwapTable2;
+    otherTable->m_preSwapTable = preSwapTable1;
+
+    auto streamer1 = m_tableStreamer;
+    auto streamer2 = otherTable->m_tableStreamer;
+    m_tableStreamer = streamer2;
+    otherTable->m_tableStreamer = streamer1;
+
+    // Swap the names of the corresponding indexes.
+    swapTableIndexes(otherTable, theIndexesToSwap, otherIndexesToSwap);
+    // Some day, we may want to deal with repopulation of asymmetric indexes
+    // and enforcement of asymmetric constraints.
+    repopulateSwappedTableIndexes(otherTable,
+            theIndexesToRepopulate, otherIndexesToRepopulate);
+
+    // Swap the names of the corresponding views.
+    swapTableViews
+           (otherTable, engine,
+            scanViewsToSwap, otherScanViewsToSwap,
+            joinViewsToSwap, otherJoinViewsToSwap);
+    // Some day, we may want to deal with repopulation of asymmetric views
+    repopulateSwappedTableViews
+           (otherTable,
+            scanViewsToRepopulate, otherScanViewsToRepopulate,
+            joinViewsToRepopulate, otherJoinViewsToRepopulate);
+}
+
+void PersistentTable::swapTableIndexes
+       (PersistentTable* otherTable,
+        TableIndexVector& theIndexesToSwap,
+        TableIndexVector& otherIndexesToSwap) {
+    size_t nSwaps = theIndexesToSwap.size();
+    assert(nSwaps == otherIndexesToSwap.size());
+
+    // FIXME: FOR NOW, every index on the two tables must be swappable
+    // because we never repopulate them.
+    assert(nSwaps == otherTable->indexCount());
+    assert(nSwaps == indexCount());
+
+    for (int ii = 0; ii < nSwaps; ++ii) {
+        TableIndex* theIndex = theIndexesToSwap[ii];
+        assert(theIndex);
+        const string& theName = theIndex->getName();
+        TableIndex* otherIndex = otherIndexesToSwap[ii];
+        assert(otherIndex);
+        const string& otherName = otherIndex->getName();
+
+        theIndex->rename(otherName);
+        otherIndex->rename(theName);
+    }
+}
+
+void PersistentTable::repopulateSwappedTableIndexes
+       (PersistentTable* otherTable,
+        TableIndexVector& theIndexesToRepopulate,
+        TableIndexVector& otherIndexesToRepopulate) {
+    // FIXME: SOME DAY, we may want to deal with repopulation
+    // of asymmetric indexes
+    // and enforcement of asymmetric constraints.
+    assert(indexesToRepopulate.size() == 0);
+    assert(otherIndexesToRepopulate.size() == 0);
+}
+
+void PersistentTable::swapTableViews
+       (PersistentTable* otherTable,
+        VoltDBEngine* engine,
+        ScanViewVector& theScanViewsToSwap,
+        ScanViewVector& otherScanViewsToSwap,
+        JoinViewVector& theJoinViewsToSwap,
+        JoinViewVector& otherJoinViewsToSwap) {
+    size_t nScanSwaps = theScanViewsToSwap.size();
+    assert(nScanSwaps == otherScanViewsToSwap.size());
+    size_t nJoinSwaps = theJoinViewsToSwap.size();
+    assert(nJoinSwaps == otherJoinViewsToSwap.size());
+
+    // FIXME: FOR NOW, every view on the two tables must be swappable,
+    // because we never repopulate.
+    assert(nScanSwaps == otherTable->m_scanViews.size());
+    assert(nScanSwaps == m_scanViews.size());
+    assert(nJoinSwaps == otherTable->m_viewHandlers.size());
+    assert(nJoinSwaps == m_viewHandlers.size());
+
+    // View swapping involves two steps.
+    // Step 1 is to swap the view target tables to ensure that
+    // query plans are now executed against the other target table.
+    // That's just a recursive application of swapTable.
+    // Step 2 is to swap the plans embedded in the views.
+    // This is required to keep each target table refreshing from the
+    // same source table, in spite of all the name changes that have
+    // occured thus far to the tables and indexes.
+    // This step needs to avoid undoing its own work in the edge
+    // case where the view joins BOTH of the tables in the swap.
+    // In such a case, the views would need to be swapped exactly once --
+    // no double-dipping.
+    for (int ii = 0; ii < nScanSwaps; ++ii) {
+        auto theView = theScanViewsToSwap[ii];
+        PersistentTable* theTarget = theView->targetTable();
+        auto otherView = otherScanViewsToSwap[ii];
+        PersistentTable* otherTarget = otherView->targetTable();
+        theTarget->swapTable(otherTarget, engine);
+
+        theView->swapPlans(otherView);
+    }
+
+    for (int ii = 0; ii < nJoinSwaps; ++ii) {
+        auto theView = theJoinViewsToSwap[ii];
+        PersistentTable* theTarget = theView->destTable();
+        auto otherView = otherJoinViewsToSwap[ii];
+        PersistentTable* otherTarget = otherView->destTable();
+        theTarget->swapTable(otherTarget, engine);
+
+        theView->swapPlans(otherView);
+    }
+
+}
+
+void PersistentTable::repopulateSwappedTableViews
+       (PersistentTable* otherTable,
+        ScanViewVector& scanViewsToRepopulate,
+        ScanViewVector& otherScanViewsToRepopulate,
+        JoinViewVector& joinViewsToRepopulate,
+        JoinViewVector& otherJoinViewsToRepopulate) {
+    // FIXME: SOME DAY, we may want to deal with repopulation
+    // of asymmetric views.
+    assert(scanViewsToRepopulate.size() == 0);
+    assert(otherScanViewsToRepopulate.size() == 0);
+    assert(joinViewsToRepopulate.size() == 0);
+    assert(otherJoinViewsToRepopulate.size() == 0);
+}
 
 void setSearchKeyFromTuple(TableTuple &source) {
     keyTuple.setNValue(0, source.getNValue(1));
@@ -705,9 +1127,9 @@ void PersistentTable::insertTupleCommon(TableTuple &source, TableTuple &target,
         UndoQuantum *uq = ExecutorContext::currentUndoQuantum();
         if (uq) {
             char* tupleData = uq->allocatePooledCopy(target.address(), target.tupleLength());
-            //* enable for debug */ std::cout << "DEBUG: inserting " << (void*)target.address()
+            //* enable for debug */ cout << "DEBUG: inserting " << (void*)target.address()
             //* enable for debug */           << " { " << target.debugNoHeader() << " } "
-            //* enable for debug */           << " copied to " << (void*)tupleData << std::endl;
+            //* enable for debug */           << " copied to " << (void*)tupleData << endl;
             uq->registerUndoAction(new (*uq) PersistentTableUndoInsertAction(tupleData, &m_surgeon));
         }
     }
@@ -717,8 +1139,8 @@ void PersistentTable::insertTupleCommon(TableTuple &source, TableTuple &target,
     }
 
     // handle any materialized views
-    for (int i = 0; i < m_views.size(); i++) {
-        m_views[i]->processTupleInsert(target, fallible);
+    for (int i = 0; i < m_scanViews.size(); i++) {
+        m_scanViews[i]->processTupleInsert(target, fallible);
     }
 }
 
@@ -758,7 +1180,7 @@ void PersistentTable::insertTupleForUndo(char *tuple) {
  */
 void PersistentTable::updateTupleWithSpecificIndexes(TableTuple &targetTupleToUpdate,
                                                      TableTuple &sourceTupleWithNewValues,
-                                                     std::vector<TableIndex*> const &indexesToUpdate,
+                                                     vector<TableIndex*> const &indexesToUpdate,
                                                      bool fallible,
                                                      bool updateDRTimestamp) {
     UndoQuantum *uq = NULL;
@@ -859,8 +1281,8 @@ void PersistentTable::updateTupleWithSpecificIndexes(TableTuple &targetTupleToUp
             viewHandler->handleTupleDelete(this, fallible);
         }
         // This is for single table view.
-        for (int i = 0; i < m_views.size(); i++) {
-            m_views[i]->processTupleDelete(targetTupleToUpdate, fallible);
+        for (int i = 0; i < m_scanViews.size(); i++) {
+            m_scanViews[i]->processTupleDelete(targetTupleToUpdate, fallible);
         }
     }
 
@@ -889,8 +1311,8 @@ void PersistentTable::updateTupleWithSpecificIndexes(TableTuple &targetTupleToUp
 
     // Either the "before" or "after" object reference values that change will come in handy later,
     // so collect them up.
-    std::vector<char*> oldObjects;
-    std::vector<char*> newObjects;
+    vector<char*> oldObjects;
+    vector<char*> newObjects;
 
     // this is the actual write of the new values
     targetTupleToUpdate.copyForPersistentUpdate(sourceTupleWithNewValues, oldObjects, newObjects);
@@ -937,8 +1359,8 @@ void PersistentTable::updateTupleWithSpecificIndexes(TableTuple &targetTupleToUp
     }
 
     // handle any materialized views
-    for (int i = 0; i < m_views.size(); i++) {
-        m_views[i]->processTupleInsert(targetTupleToUpdate, fallible);
+    for (int i = 0; i < m_scanViews.size(); i++) {
+        m_scanViews[i]->processTupleInsert(targetTupleToUpdate, fallible);
     }
 }
 
@@ -1046,8 +1468,8 @@ void PersistentTable::deleteTuple(TableTuple &target, bool fallible) {
         }
 
         // This is for single table view.
-        for (int i = 0; i < m_views.size(); i++) {
-            m_views[i]->processTupleDelete(target, fallible);
+        for (int i = 0; i < m_scanViews.size(); i++) {
+            m_scanViews[i]->processTupleDelete(target, fallible);
         }
     }
 
@@ -1142,9 +1564,9 @@ void PersistentTable::deleteTupleForSchemaChange(TableTuple &target) {
 void PersistentTable::deleteTupleForUndo(char* tupleData, bool skipLookup) {
     TableTuple matchable(tupleData, m_schema);
     TableTuple target(tupleData, m_schema);
-    //* enable for debug */ std::cout << "DEBUG: undoing "
+    //* enable for debug */ cout << "DEBUG: undoing "
     //* enable for debug */           << " { " << target.debugNoHeader() << " } "
-    //* enable for debug */           << " copied to " << (void*)tupleData << std::endl;
+    //* enable for debug */           << " copied to " << (void*)tupleData << endl;
     if (!skipLookup) {
         // The UndoInsertAction got a pooled copy of the tupleData.
         // Relocate the original tuple actually in the table.
@@ -1155,9 +1577,9 @@ void PersistentTable::deleteTupleForUndo(char* tupleData, bool skipLookup) {
                             " tuple does not exist\n%s\n", m_name.c_str(),
                             matchable.debugNoHeader().c_str());
     }
-    //* enable for debug */ std::cout << "DEBUG: finding " << (void*)target.address()
+    //* enable for debug */ cout << "DEBUG: finding " << (void*)target.address()
     //* enable for debug */           << " { " << target.debugNoHeader() << " } "
-    //* enable for debug */           << " copied to " << (void*)tupleData << std::endl;
+    //* enable for debug */           << " copied to " << (void*)tupleData << endl;
 
     // Make sure that they are not trying to delete the same tuple twice
     assert(target.isActive());
@@ -1249,7 +1671,7 @@ void PersistentTable::tryInsertOnAllIndexes(TableTuple *tuple, TableTuple *confl
 
 bool PersistentTable::checkUpdateOnUniqueIndexes(TableTuple &targetTupleToUpdate,
                                                  const TableTuple &sourceTupleWithNewValues,
-                                                 std::vector<TableIndex*> const &indexesToUpdate) {
+                                                 vector<TableIndex*> const &indexesToUpdate) {
     BOOST_FOREACH(TableIndex* index, indexesToUpdate) {
         if (index->isUniqueIndex()) {
             if (index->checkForIndexChange(&targetTupleToUpdate, &sourceTupleWithNewValues) == false)
@@ -1282,7 +1704,7 @@ bool PersistentTable::checkNulls(TableTuple &tuple) const {
  * claim ownership of a view. table is responsible for this view*
  */
 void PersistentTable::addMaterializedView(MaterializedViewTriggerForWrite* view) {
-    m_views.push_back(view);
+    m_scanViews.push_back(view);
 }
 
 /*
@@ -1290,24 +1712,24 @@ void PersistentTable::addMaterializedView(MaterializedViewTriggerForWrite* view)
  * The destination table will go away when the view metadata is deleted (or later?) as its refcount goes to 0.
  */
 void PersistentTable::dropMaterializedView(MaterializedViewTriggerForWrite* targetView) {
-    assert( ! m_views.empty());
-    MaterializedViewTriggerForWrite* lastView = m_views.back();
+    assert( ! m_scanViews.empty());
+    MaterializedViewTriggerForWrite* lastView = m_scanViews.back();
     if (targetView != lastView) {
         // iterator to vector element:
-        std::vector<MaterializedViewTriggerForWrite*>::iterator toView = find(m_views.begin(), m_views.end(), targetView);
-        assert(toView != m_views.end());
+        auto toView = find(m_scanViews.begin(), m_scanViews.end(), targetView);
+        assert(toView != m_scanViews.end());
         // Use the last view to patch the potential hole.
         *toView = lastView;
     }
     // The last element is now excess.
-    m_views.pop_back();
+    m_scanViews.pop_back();
     delete targetView;
 }
 
 // ------------------------------------------------------------------
 // UTILITY
 // ------------------------------------------------------------------
-std::string PersistentTable::tableType() const { return "PersistentTable"; }
+string PersistentTable::tableType() const { return "PersistentTable"; }
 
 bool PersistentTable::equals(PersistentTable* other) {
     if ( ! Table::equals(other)) {
@@ -1317,12 +1739,12 @@ bool PersistentTable::equals(PersistentTable* other) {
         return false;
     }
 
-    const std::vector<voltdb::TableIndex*>& indexes = allIndexes();
-    const std::vector<voltdb::TableIndex*>& otherIndexes = other->allIndexes();
+    const vector<voltdb::TableIndex*>& indexes = allIndexes();
+    const vector<voltdb::TableIndex*>& otherIndexes = other->allIndexes();
     if (!(indexes.size() == indexes.size())) {
         return false;
     }
-    for (std::size_t ii = 0; ii < indexes.size(); ii++) {
+    for (size_t ii = 0; ii < indexes.size(); ii++) {
         if (!(indexes[ii]->equals(otherIndexes[ii]))) {
             return false;
         }
@@ -1330,8 +1752,8 @@ bool PersistentTable::equals(PersistentTable* other) {
     return true;
 }
 
-std::string PersistentTable::debug() {
-    std::ostringstream buffer;
+string PersistentTable::debug() {
+    ostringstream buffer;
     buffer << Table::debug();
     buffer << "\tINDEXES: " << m_indexes.size() << "\n";
 
@@ -1396,14 +1818,14 @@ bool PersistentTable::activateStream(
         m_tableStreamer.reset(new TableStreamer(partitionId, *this, tableId));
     }
 
-    std::vector<std::string> predicateStrings;
+    vector<string> predicateStrings;
     // Grab snapshot or elastic stream predicates.
     if (tableStreamTypeHasPredicates(streamType)) {
         int npreds = serializeIn.readInt();
         if (npreds > 0) {
             predicateStrings.reserve(npreds);
             for (int ipred = 0; ipred < npreds; ipred++) {
-                std::string spred = serializeIn.readTextString();
+                string spred = serializeIn.readTextString();
                 predicateStrings.push_back(spred);
             }
         }
@@ -1420,7 +1842,7 @@ bool PersistentTable::activateStream(
 bool PersistentTable::activateWithCustomStreamer(TableStreamType streamType,
         boost::shared_ptr<TableStreamerInterface> tableStreamer,
         CatalogId tableId,
-        std::vector<std::string> &predicateStrings,
+        vector<string> &predicateStrings,
         bool skipInternalActivation) {
     // Expect m_tableStreamer to be null. Only make it fatal in debug builds.
     assert(m_tableStreamer == NULL);
@@ -1440,7 +1862,7 @@ bool PersistentTable::activateWithCustomStreamer(TableStreamType streamType,
  */
 int64_t PersistentTable::streamMore(TupleOutputStreamProcessor &outputStreams,
                                     TableStreamType streamType,
-                                    std::vector<int> &retPositions) {
+                                    vector<int> &retPositions) {
     if (m_tableStreamer.get() == NULL) {
         char errMsg[1024];
         snprintf(errMsg, 1024, "No table streamer of Type %s for table %s.",
@@ -1566,7 +1988,7 @@ bool PersistentTable::doCompactionWithinSubset(TBBucketPtrVector *bucketVector) 
         }
     }
     if (!foundFullest) {
-        //std::cout << "Could not find a fullest block for compaction" << std::endl;
+        //cout << "Could not find a fullest block for compaction" << endl;
         return false;
     }
 
@@ -1598,7 +2020,7 @@ bool PersistentTable::doCompactionWithinSubset(TBBucketPtrVector *bucketVector) 
             return false;
         }
 
-        std::pair<int, int> bucketChanges = fullest->merge(this, lightest, this);
+        pair<int, int> bucketChanges = fullest->merge(this, lightest, this);
         int tempFullestBucketChange = bucketChanges.first;
         if (tempFullestBucketChange != NO_NEW_BUCKET_INDEX) {
             fullestBucketChange = tempFullestBucketChange;
@@ -1686,12 +2108,12 @@ bool PersistentTable::doForcedCompaction() {
             break;
         }
         if (!m_blocksNotPendingSnapshot.empty() && hadWork1) {
-            //std::cout << "Compacting blocks not pending snapshot " << m_blocksNotPendingSnapshot.size() << std::endl;
+            //cout << "Compacting blocks not pending snapshot " << m_blocksNotPendingSnapshot.size() << endl;
             hadWork1 = doCompactionWithinSubset(&m_blocksNotPendingSnapshotLoad);
             notPendingCompactions++;
         }
         if (!m_blocksPendingSnapshot.empty() && hadWork2) {
-            //std::cout << "Compacting blocks pending snapshot " << m_blocksPendingSnapshot.size() << std::endl;
+            //cout << "Compacting blocks pending snapshot " << m_blocksPendingSnapshot.size() << endl;
             hadWork2 = doCompactionWithinSubset(&m_blocksPendingSnapshotLoad);
             pendingCompactions++;
         }
@@ -1716,55 +2138,55 @@ bool PersistentTable::doForcedCompaction() {
 }
 
 void PersistentTable::printBucketInfo() {
-    std::cout << std::endl;
+    cout << endl;
     TBMapI iter = m_data.begin();
     while (iter != m_data.end()) {
-        std::cout << "Block " << static_cast<void*>(iter.data()->address()) << " has " <<
+        cout << "Block " << static_cast<void*>(iter.data()->address()) << " has " <<
                 iter.data()->activeTuples() << " active tuples and " << iter.data()->lastCompactionOffset()
                 << " last compaction offset and is in bucket " <<
                 static_cast<void*>(iter.data()->currentBucket().get()) <<
-                std::endl;
+                endl;
         iter++;
     }
 
-    boost::unordered_set<TBPtr>::iterator blocksNotPendingSnapshot = m_blocksNotPendingSnapshot.begin();
-    std::cout << "Blocks not pending snapshot: ";
+    auto blocksNotPendingSnapshot = m_blocksNotPendingSnapshot.begin();
+    cout << "Blocks not pending snapshot: ";
     while (blocksNotPendingSnapshot != m_blocksNotPendingSnapshot.end()) {
-        std::cout << static_cast<void*>((*blocksNotPendingSnapshot)->address()) << ",";
+        cout << static_cast<void*>((*blocksNotPendingSnapshot)->address()) << ",";
         blocksNotPendingSnapshot++;
     }
-    std::cout << std::endl;
+    cout << endl;
     for (int ii = 0; ii < m_blocksNotPendingSnapshotLoad.size(); ii++) {
         if (m_blocksNotPendingSnapshotLoad[ii]->empty()) {
             continue;
         }
-        std::cout << "Bucket " << ii << "(" << static_cast<void*>(m_blocksNotPendingSnapshotLoad[ii].get()) << ") has size " << m_blocksNotPendingSnapshotLoad[ii]->size() << std::endl;
+        cout << "Bucket " << ii << "(" << static_cast<void*>(m_blocksNotPendingSnapshotLoad[ii].get()) << ") has size " << m_blocksNotPendingSnapshotLoad[ii]->size() << endl;
         TBBucketI bucketIter = m_blocksNotPendingSnapshotLoad[ii]->begin();
         while (bucketIter != m_blocksNotPendingSnapshotLoad[ii]->end()) {
-            std::cout << "\t" << static_cast<void*>((*bucketIter)->address()) << std::endl;
+            cout << "\t" << static_cast<void*>((*bucketIter)->address()) << endl;
             bucketIter++;
         }
     }
 
-    boost::unordered_set<TBPtr>::iterator blocksPendingSnapshot = m_blocksPendingSnapshot.begin();
-    std::cout << "Blocks pending snapshot: ";
+    auto blocksPendingSnapshot = m_blocksPendingSnapshot.begin();
+    cout << "Blocks pending snapshot: ";
     while (blocksPendingSnapshot != m_blocksPendingSnapshot.end()) {
-        std::cout << static_cast<void*>((*blocksPendingSnapshot)->address()) << ",";
+        cout << static_cast<void*>((*blocksPendingSnapshot)->address()) << ",";
         blocksPendingSnapshot++;
     }
-    std::cout << std::endl;
+    cout << endl;
     for (int ii = 0; ii < m_blocksPendingSnapshotLoad.size(); ii++) {
         if (m_blocksPendingSnapshotLoad[ii]->empty()) {
             continue;
         }
-        std::cout << "Bucket " << ii << "(" << static_cast<void*>(m_blocksPendingSnapshotLoad[ii].get()) << ") has size " << m_blocksPendingSnapshotLoad[ii]->size() << std::endl;
+        cout << "Bucket " << ii << "(" << static_cast<void*>(m_blocksPendingSnapshotLoad[ii].get()) << ") has size " << m_blocksPendingSnapshotLoad[ii]->size() << endl;
         TBBucketI bucketIter = m_blocksPendingSnapshotLoad[ii]->begin();
         while (bucketIter != m_blocksPendingSnapshotLoad[ii]->end()) {
-            std::cout << "\t" << static_cast<void*>((*bucketIter)->address()) << std::endl;
+            cout << "\t" << static_cast<void*>((*bucketIter)->address()) << endl;
             bucketIter++;
         }
     }
-    std::cout << std::endl;
+    cout << endl;
 }
 
 int64_t PersistentTable::validatePartitioning(TheHashinator *hashinator, int32_t partitionId) {
@@ -1777,26 +2199,26 @@ int64_t PersistentTable::validatePartitioning(TheHashinator *hashinator, int32_t
         iter.next(tuple);
         int32_t newPartitionId = hashinator->hashinate(tuple.getNValue(m_partitionColumn));
         if (newPartitionId != partitionId) {
-            std::ostringstream buffer;
+            ostringstream buffer;
             buffer << "@ValidPartitioning found a mispartitioned row (hash: "
                     << m_surgeon.generateTupleHash(tuple)
                     << " should in "<< partitionId
                     << ", but in " << newPartitionId << "):\n"
                     << tuple.debug(name())
-                    << std::endl;
+                    << endl;
             LogManager::getThreadLogger(LOGGERID_HOST)->log(LOGLEVEL_WARN,
                     buffer.str().c_str());
             mispartitionedRows++;
         }
     }
     if (mispartitionedRows > 0) {
-        std::ostringstream buffer;
+        ostringstream buffer;
         buffer << "Expected hashinator is "
                 << hashinator->debug()
-                << std::endl;
+                << endl;
         buffer << "Current hashinator is"
                 << ExecutorContext::getEngine()->dumpCurrentHashinator()
-                << std::endl;
+                << endl;
         LogManager::getThreadLogger(LOGGERID_HOST)->log(LOGLEVEL_WARN,
                             buffer.str().c_str());
     }
@@ -1825,18 +2247,18 @@ void PersistentTableSurgeon::activateSnapshot() {
     }
 }
 
-std::pair<const TableIndex*, uint32_t> PersistentTable::getUniqueIndexForDR() {
+pair<const TableIndex*, uint32_t> PersistentTable::getUniqueIndexForDR() {
     // In active-active we always send full tuple instead of just index tuple.
     bool isActiveActive = ExecutorContext::getExecutorContext()->getEngine()->getIsActiveActiveDREnabled();
     if (isActiveActive) {
         TableIndex* nullIndex = NULL;
-        return std::make_pair(nullIndex, 0);
+        return make_pair(nullIndex, 0);
     }
 
     if (!m_smallestUniqueIndex && !m_noAvailableUniqueIndex) {
         computeSmallestUniqueIndex();
     }
-    return std::make_pair(m_smallestUniqueIndex, m_smallestUniqueIndexCrc);
+    return make_pair(m_smallestUniqueIndex, m_smallestUniqueIndexCrc);
 }
 
 void PersistentTable::computeSmallestUniqueIndex() {
@@ -1844,7 +2266,7 @@ void PersistentTable::computeSmallestUniqueIndex() {
     m_noAvailableUniqueIndex = true;
     m_smallestUniqueIndex = NULL;
     m_smallestUniqueIndexCrc = 0;
-    std::string smallestUniqueIndexName = ""; // use name for determinism
+    string smallestUniqueIndexName = ""; // use name for determinism
     BOOST_FOREACH(TableIndex* index, m_indexes) {
         if (index->isUniqueIndex() && !index->isPartialIndex()) {
             uint32_t indexTupleLength = index->getKeySchema()->tupleLength();
@@ -1868,8 +2290,8 @@ void PersistentTable::computeSmallestUniqueIndex() {
     }
 }
 
-std::vector<uint64_t> PersistentTable::getBlockAddresses() const {
-    std::vector<uint64_t> blockAddresses;
+vector<uint64_t> PersistentTable::getBlockAddresses() const {
+    vector<uint64_t> blockAddresses;
     blockAddresses.reserve(m_data.size());
     for (TBMap::const_iterator i = m_data.begin(); i != m_data.end(); ++i) {
         blockAddresses.push_back((uint64_t)i->second->address());
@@ -1878,7 +2300,7 @@ std::vector<uint64_t> PersistentTable::getBlockAddresses() const {
 }
 
 #ifdef DEBUG
-static bool isExistingTableIndex(std::vector<TableIndex*> &indexes, TableIndex* index) {
+static bool isExistingTableIndex(vector<TableIndex*> &indexes, TableIndex* index) {
     BOOST_FOREACH(TableIndex *existingIndex, indexes) {
         if (existingIndex == index) {
             return true;
@@ -1888,13 +2310,14 @@ static bool isExistingTableIndex(std::vector<TableIndex*> &indexes, TableIndex* 
 }
 #endif
 
-TableIndex* PersistentTable::index(std::string name) const {
+TableIndex* PersistentTable::index(const string& name) const {
     BOOST_FOREACH(TableIndex *index, m_indexes) {
         if (index->getName().compare(name) == 0) {
             return index;
         }
     }
-    std::stringstream errorString;
+
+    stringstream errorString;
     errorString << "Could not find Index with name " << name << " among {";
     const char* sep = "";
     BOOST_FOREACH(TableIndex *index, m_indexes) {
@@ -1983,12 +2406,12 @@ void PersistentTable::addViewHandler(MaterializedViewHandler *viewHandler) {
 
 void PersistentTable::dropViewHandler(MaterializedViewHandler *viewHandler) {
     assert( ! m_viewHandlers.empty());
-    MaterializedViewHandler* lastHandler = m_viewHandlers.back();
+    auto lastHandler = m_viewHandlers.back();
     if (viewHandler != lastHandler) {
         // iterator to vector element:
-        std::vector<MaterializedViewHandler*>::iterator it = find(m_viewHandlers.begin(),
-                                                                  m_viewHandlers.end(),
-                                                                  viewHandler);
+        auto it = find(m_viewHandlers.begin(),
+                       m_viewHandlers.end(),
+                       viewHandler);
         assert(it != m_viewHandlers.end());
         // Use the last view to patch the potential hole.
         *it = lastHandler;

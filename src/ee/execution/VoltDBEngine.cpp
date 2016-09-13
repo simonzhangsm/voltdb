@@ -364,7 +364,7 @@ void VoltDBEngine::serializeTable(int32_t tableId, SerializeOutput& out) const
 int VoltDBEngine::executePlanFragments(int32_t numFragments,
                                        int64_t planfragmentIds[],
                                        int64_t inputDependencyIds[],
-                                       ReferenceSerializeInputBE &serialize_in,
+                                       ReferenceSerializeInputBE& serialize_in,
                                        int64_t txnId,
                                        int64_t spHandle,
                                        int64_t lastCommittedSpHandle,
@@ -475,7 +475,7 @@ int VoltDBEngine::executePlanFragment(int64_t planfragmentId,
 
         executePlanFragment(m_currExecutorVec, &tuplesModified);
     }
-    catch (const SerializableEEException &e) {
+    catch (const SerializableEEException& e) {
         serializeException(e);
         m_currExecutorVec = NULL;
         m_currentInputDepId = -1;
@@ -535,7 +535,7 @@ UniqueTempTableResult VoltDBEngine::executePlanFragment(ExecutorVector* executor
         executorVector->setupContext(m_executorContext);
         result = m_executorContext->executeExecutors(0);
     }
-    catch (const SerializableEEException &e) {
+    catch (const SerializableEEException& e) {
         resetExecutionMetadata(executorVector);
         throw;
     }
@@ -601,7 +601,7 @@ bool VoltDBEngine::updateCatalogDatabaseReference() {
     return true;
 }
 
-bool VoltDBEngine::loadCatalog(const int64_t timestamp, const std::string &catalogPayload) {
+bool VoltDBEngine::loadCatalog(const int64_t timestamp, const std::string& catalogPayload) {
     assert(m_executorContext != NULL);
     ExecutorContext* executorContext = ExecutorContext::getExecutorContext();
     if (executorContext == NULL) {
@@ -810,7 +810,7 @@ VoltDBEngine::processCatalogAdditions(int64_t timestamp)
                 std::vector<MaterializedViewTriggerForStreamInsert*> survivingViews;
                 std::vector<MaterializedViewTriggerForStreamInsert*> obsoleteViews;
 
-                const catalog::CatalogMap<catalog::MaterializedViewInfo> & views = catalogTable->views();
+                const catalog::CatalogMap<catalog::MaterializedViewInfo>& views = catalogTable->views();
 
                 MaterializedViewTriggerForStreamInsert::segregateMaterializedViews(streamedtable->views(),
                         views.begin(), views.end(),
@@ -876,7 +876,7 @@ VoltDBEngine::processCatalogAdditions(int64_t timestamp)
                 std::vector<MaterializedViewTriggerForStreamInsert*> survivingViews;
                 std::vector<MaterializedViewTriggerForStreamInsert*> obsoleteViews;
 
-                const catalog::CatalogMap<catalog::MaterializedViewInfo> & views = catalogTable->views();
+                const catalog::CatalogMap<catalog::MaterializedViewInfo>& views = catalogTable->views();
 
                 MaterializedViewTriggerForStreamInsert::segregateMaterializedViews(streamedTable->views(),
                         views.begin(), views.end(),
@@ -1046,7 +1046,7 @@ VoltDBEngine::processCatalogAdditions(int64_t timestamp)
             std::vector<MaterializedViewTriggerForWrite*> survivingViews;
             std::vector<MaterializedViewTriggerForWrite*> obsoleteViews;
 
-            const catalog::CatalogMap<catalog::MaterializedViewInfo> & views = catalogTable->views();
+            const catalog::CatalogMap<catalog::MaterializedViewInfo>& views = catalogTable->views();
             MaterializedViewTriggerForWrite::segregateMaterializedViews(persistentTable->views(),
                     views.begin(), views.end(),
                     survivingInfos, survivingViews, obsoleteViews);
@@ -1099,7 +1099,7 @@ VoltDBEngine::processCatalogAdditions(int64_t timestamp)
  * delete or modify the corresponding exectution engine objects.
  */
 bool
-VoltDBEngine::updateCatalog(const int64_t timestamp, const std::string &catalogPayload)
+VoltDBEngine::updateCatalog(const int64_t timestamp, const std::string& catalogPayload)
 {
     // clean up execution plans when the tables underneath might change
     if (m_plans) {
@@ -1146,7 +1146,7 @@ VoltDBEngine::updateCatalog(const int64_t timestamp, const std::string &catalogP
 
 bool
 VoltDBEngine::loadTable(int32_t tableId,
-                        ReferenceSerializeInputBE &serializeIn,
+                        ReferenceSerializeInputBE& serializeIn,
                         int64_t txnId, int64_t spHandle, int64_t lastCommittedSpHandle,
                         int64_t uniqueId,
                         bool returnUniqueViolations,
@@ -1180,7 +1180,7 @@ VoltDBEngine::loadTable(int32_t tableId,
     try {
         table->loadTuplesFrom(serializeIn, NULL, returnUniqueViolations ? &m_resultOutput : NULL, shouldDRStream);
     }
-    catch (const SerializableEEException &e) {
+    catch (const SerializableEEException& e) {
         throwFatalException("%s", e.message().c_str());
     }
     return true;
@@ -1329,7 +1329,7 @@ void VoltDBEngine::setExecutorVectorForFragmentId(int64_t fragId)
 // either MaterializedViewTriggerForStreamInsert for views on streams or
 // MaterializedViewTriggerForWrite for views on persistent tables.
 template <class MATVIEW>
-static bool updateMaterializedViewTargetTable(std::vector<MATVIEW*> & views,
+static bool updateMaterializedViewTargetTable(std::vector<MATVIEW*>& views,
                                               PersistentTable* target,
                                               catalog::MaterializedViewInfo* targetMvInfo)
 {
@@ -1591,7 +1591,7 @@ int VoltDBEngine::getStats(int selector, int locators[], int numLocators,
                                           message);
         }
     }
-    catch (const SerializableEEException &e) {
+    catch (const SerializableEEException& e) {
         serializeException(e);
         return -1;
     }
@@ -1634,7 +1634,7 @@ bool VoltDBEngine::activateTableStream(
         const CatalogId tableId,
         TableStreamType streamType,
         int64_t undoToken,
-        ReferenceSerializeInputBE &serializeIn) {
+        ReferenceSerializeInputBE& serializeIn) {
     Table* found = getTable(tableId);
     if (! found) {
         return false;
@@ -1674,7 +1674,7 @@ bool VoltDBEngine::activateTableStream(
  */
 int64_t VoltDBEngine::tableStreamSerializeMore(const CatalogId tableId,
                                                const TableStreamType streamType,
-                                               ReferenceSerializeInputBE &serialize_in)
+                                               ReferenceSerializeInputBE& serialize_in)
 {
     int64_t remaining = TABLE_STREAM_SERIALIZATION_ERROR;
     try {
@@ -1699,7 +1699,7 @@ int64_t VoltDBEngine::tableStreamSerializeMore(const CatalogId tableId,
         VOLT_DEBUG("tableStreamSerializeMore: deserialized %d buffers, %ld remaining",
                    (int)positions.size(), (long)remaining);
     }
-    catch (SerializableEEException &e) {
+    catch (SerializableEEException& e) {
         serializeException(e);
         remaining = TABLE_STREAM_SERIALIZATION_ERROR;
     }
@@ -1715,8 +1715,8 @@ int64_t VoltDBEngine::tableStreamSerializeMore(const CatalogId tableId,
 int64_t VoltDBEngine::tableStreamSerializeMore(
         const CatalogId tableId,
         const TableStreamType streamType,
-        ReferenceSerializeInputBE &serializeIn,
-        std::vector<int> &retPositions)
+        ReferenceSerializeInputBE& serializeIn,
+        std::vector<int>& retPositions)
 {
     // Deserialize the output buffer ptr/offset/length values into a COWStreamProcessor.
     int nBuffers = serializeIn.readInt();
@@ -1763,16 +1763,16 @@ int64_t VoltDBEngine::tableStreamSerializeMore(
             table->decrementRefcount();
         }
     }
-    else if (tableStreamTypeAppliesToPreTruncateTable(streamType)) {
+    else if (tableStreamTypeAppliesToPreSwapTable(streamType)) {
         Table* found = getTable(tableId);
         if (found == NULL) {
             return TABLE_STREAM_SERIALIZATION_ERROR;
         }
 
-        PersistentTable * currentTable = dynamic_cast<PersistentTable*>(found);
+        PersistentTable* currentTable = dynamic_cast<PersistentTable*>(found);
         assert(currentTable != NULL);
         // The ongoing TABLE STREAM needs the original table from the first table truncate.
-        PersistentTable * originalTable = currentTable->currentPreTruncateTable();
+        PersistentTable* originalTable = currentTable->currentPreSwapTable();
 
         VOLT_DEBUG("tableStreamSerializeMore: type %s, rewinds to the table before the first truncate",
                 tableStreamTypeToString(streamType).c_str());
@@ -1781,7 +1781,7 @@ int64_t VoltDBEngine::tableStreamSerializeMore(
         if (remaining <= 0) {
             // The on going TABLE STREAM of the original table before the first table truncate has finished.
             // Reset all the previous table pointers to be NULL.
-            currentTable->unsetPreTruncateTable();
+            currentTable->unsetPreSwapTable();
             VOLT_DEBUG("tableStreamSerializeMore: type %s, null the previous truncate table pointer",
                     tableStreamTypeToString(streamType).c_str());
         }
@@ -1842,7 +1842,7 @@ VoltDBEngine::exportAction(bool syncAction, int64_t ackOffset, int64_t seqNo, st
     return 0;
 }
 
-void VoltDBEngine::getUSOForExportTable(size_t &ackOffset, int64_t &seqNo, std::string tableSignature) {
+void VoltDBEngine::getUSOForExportTable(size_t& ackOffset, int64_t& seqNo, std::string tableSignature) {
 
     // defaults mean failure
     ackOffset = 0;
@@ -1893,7 +1893,7 @@ void VoltDBEngine::updateHashinator(HashinatorType type, const char *config, int
     }
 }
 
-void VoltDBEngine::dispatchValidatePartitioningTask(ReferenceSerializeInputBE &taskInfo) {
+void VoltDBEngine::dispatchValidatePartitioningTask(ReferenceSerializeInputBE& taskInfo) {
     std::vector<CatalogId> tableIds;
     const int32_t numTables = taskInfo.readInt();
     for (int ii = 0; ii < numTables; ii++) {
@@ -1977,7 +1977,7 @@ int64_t VoltDBEngine::applyBinaryLog(int64_t txnId,
     return rowCount;
 }
 
-void VoltDBEngine::executeTask(TaskType taskType, ReferenceSerializeInputBE &taskInfo) {
+void VoltDBEngine::executeTask(TaskType taskType, ReferenceSerializeInputBE& taskInfo) {
     switch (taskType) {
     case TASK_TYPE_VALIDATE_PARTITIONING:
         dispatchValidatePartitioningTask(taskInfo);
@@ -2051,7 +2051,7 @@ void VoltDBEngine::executePurgeFragment(PersistentTable* table) {
     try {
         m_executorContext->executeExecutors(0);
     }
-    catch (const SerializableEEException &e) {
+    catch (const SerializableEEException& e) {
         // restore original DML statement state.
         m_currExecutorVec->setupContext(m_executorContext);
         m_tuplesModifiedStack.pop();
