@@ -94,6 +94,7 @@ import com.google_voltpatches.common.base.Predicate;
 import com.google_voltpatches.common.base.Supplier;
 import com.google_voltpatches.common.base.Throwables;
 import com.google_voltpatches.common.util.concurrent.ListenableFuture;
+import org.voltdb.utils.VoltTrace;
 
 /**
  * Represents VoltDB's connection to client libraries outside the cluster.
@@ -936,6 +937,11 @@ public class ClientInterface implements SnapshotDaemon.DaemonInitiator {
                     delta,
                     clientResponse.getStatus());
 
+            VoltTrace.add(() -> VoltTrace.endAsync("recvtxn", VoltTrace.Category.CI,
+                                                   clientData.m_clientHandle,
+                                                   "status", Byte.toString(clientResponse.getStatus()),
+                                                   "statusString", clientResponse.getStatusString()));
+
             clientResponse.setClientHandle(clientData.m_clientHandle);
             clientResponse.setClusterRoundtrip((int)TimeUnit.NANOSECONDS.toMillis(delta));
             clientResponse.setHash(null); // not part of wire protocol
@@ -1360,7 +1366,16 @@ public class ClientInterface implements SnapshotDaemon.DaemonInitiator {
             return errorResponse(ccxn, task.clientHandle, ClientResponse.UNEXPECTED_FAILURE, errorMessage, null, false);
         }
 
-        return m_dispatcher.dispatch(task, handler, ccxn, user, null);
+        final ClientResponseImpl errResp = m_dispatcher.dispatch(task, handler, ccxn, user, null);
+
+        if (errResp != null) {
+            VoltTrace.add(() -> VoltTrace.endAsync("recvtxn", VoltTrace.Category.CI,
+                                                   task.getClientHandle(),
+                                                   "status", Byte.toString(errResp.getStatus()),
+                                                   "statusString", errResp.getStatusString()));
+        }
+
+        return errResp;
     }
 
     public Procedure getProcedureFromName(String procName, CatalogContext catalogContext) {
