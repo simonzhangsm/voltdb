@@ -357,7 +357,7 @@ public class UpdateApplicationCatalog extends VoltSystemProcedure {
 
             // if this is a new catalog, do the work to update
             if (context.getCatalogVersion() == expectedCatalogVersion) {
-                VoltTrace.add(() -> VoltTrace.beginDuration("uac_VoltDB.instance().catalogUpdate", VoltTrace.Category.SPSITE));
+                VoltTrace.add(() -> VoltTrace.beginDuration("uac_instance().catalogUpdate", VoltTrace.Category.SPSITE));
                 // update the global catalog if we get there first
                 @SuppressWarnings("deprecation")
                 Pair<CatalogContext, CatalogSpecificPlanner> p =
@@ -375,6 +375,7 @@ public class UpdateApplicationCatalog extends VoltSystemProcedure {
                 // update the local catalog.  Safe to do this thanks to the check to get into here.
                 long uniqueId = m_runner.getUniqueId();
                 long spHandle = m_runner.getTxnState().getNotice().getSpHandle();
+                log.warn("UAC diff cmds:" + commands);
                 context.updateCatalog(commands, p.getFirst(), p.getSecond(),
                         requiresSnapshotIsolation, uniqueId, spHandle);
 

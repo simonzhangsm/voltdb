@@ -102,6 +102,7 @@ import org.voltdb.sysprocs.SysProcFragmentId;
 import org.voltdb.utils.CompressionService;
 import org.voltdb.utils.LogKeys;
 import org.voltdb.utils.MinimumRatioMaintainer;
+import org.voltdb.utils.VoltTrace;
 
 import com.google_voltpatches.common.base.Charsets;
 import com.google_voltpatches.common.base.Preconditions;
@@ -1425,16 +1426,19 @@ public class Site implements Runnable, SiteProcedureConnection, SiteSnapshotConn
     public boolean updateCatalog(String diffCmds, CatalogContext context, CatalogSpecificPlanner csp,
             boolean requiresSnapshotIsolationboolean, boolean isMPI, long uniqueId, long spHandle)
     {
+        VoltTrace.add(() -> VoltTrace.beginDuration("uac_loadProcedures", VoltTrace.Category.SPSITE));
         m_context = context;
         m_ee.setBatchTimeout(m_context.cluster.getDeployment().get("deployment").
                 getSystemsettings().get("systemsettings").getQuerytimeout());
         m_loadedProcedures.loadProcedures(m_context, m_backend, csp);
+        VoltTrace.add(VoltTrace::endDuration);
 
         if (isMPI) {
             // the rest of the work applies to sites with real EEs
             return true;
         }
 
+        VoltTrace.add(() -> VoltTrace.beginDuration("uac_drtable_change", VoltTrace.Category.SPSITE));
         boolean DRCatalogChange = false;
         CatalogMap<Table> tables = m_context.catalog.getClusters().get("cluster").getDatabases().get("database").getTables();
         for (Table t : tables) {
@@ -1445,6 +1449,9 @@ public class Site implements Runnable, SiteProcedureConnection, SiteSnapshotConn
                 }
             }
         }
+        VoltTrace.add(VoltTrace::endDuration);
+
+        VoltTrace.add(() -> VoltTrace.beginDuration("uac_waiting_snapshot", VoltTrace.Category.SPSITE));
         // if a snapshot is in process, wait for it to finish
         // don't bother if this isn't a schema change
         //
@@ -1460,11 +1467,18 @@ public class Site implements Runnable, SiteProcedureConnection, SiteSnapshotConn
                 VoltDB.crashLocalVoltDB("Unexpected Interrupted Exception while finishing a snapshot for a catalog update.", true, e);
             }
         }
+        VoltTrace.add(VoltTrace::endDuration);
 
         //Necessary to quiesce before updating the catalog
         //so export data for the old generation is pushed to Java.
+        VoltTrace.add(() -> VoltTrace.beginDuration("uac_ee_quiesce", VoltTrace.Category.SPSITE));
         m_ee.quiesce(m_lastCommittedSpHandle);
+        VoltTrace.add(VoltTrace::endDuration);
+
+        VoltTrace.add(() -> VoltTrace.beginDuration("uac_ee_update", VoltTrace.Category.SPSITE));
         m_ee.updateCatalog(m_context.m_uniqueId, diffCmds);
+        VoltTrace.add(VoltTrace::endDuration);
+
         if (DRCatalogChange) {
             final Pair<Long, String> catalogCommands = DRCatalogDiffEngine.serializeCatalogCommandsForDr(m_context.catalog);
             generateDREvent( EventType.CATALOG_UPDATE, uniqueId, m_lastCommittedSpHandle,

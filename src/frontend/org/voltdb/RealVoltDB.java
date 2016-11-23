@@ -2940,6 +2940,7 @@ public class RealVoltDB implements VoltDBInterface, RestoreAgent.Callback, HostM
 
                 VoltTrace.add(() -> VoltTrace.beginDuration("uac_update_context", VoltTrace.Category.SPSITE));
                 // 0. A new catalog! Update the global context and the context tracker
+                VoltTrace.add(() -> VoltTrace.beginDuration("uac_new_context", VoltTrace.Category.SPSITE));
                 m_catalogContext =
                     m_catalogContext.update(
                             currentTxnId,
@@ -2949,14 +2950,18 @@ public class RealVoltDB implements VoltDBInterface, RestoreAgent.Callback, HostM
                             diffCommands,
                             true,
                             deploymentBytes);
+                VoltTrace.add(VoltTrace::endDuration);
 
+                VoltTrace.add(() -> VoltTrace.beginDuration("uac_new_context_tracker", VoltTrace.Category.SPSITE));
                 final CatalogSpecificPlanner csp = new CatalogSpecificPlanner( m_asyncCompilerAgent, m_catalogContext);
                 m_txnIdToContextTracker.put(currentTxnId,
                         new ContextTracker(
                                 m_catalogContext,
                                 csp));
+                VoltTrace.add(VoltTrace::endDuration);
 
                 // log the stuff that's changed in this new catalog update
+                VoltTrace.add(() -> VoltTrace.beginDuration("uac_context_log_changes", VoltTrace.Category.SPSITE));
                 SortedMap<String, String> newDbgMap = m_catalogContext.getDebuggingInfoFromCatalog();
                 for (Entry<String, String> e : newDbgMap.entrySet()) {
                     // skip log lines that are unchanged
@@ -2965,8 +2970,10 @@ public class RealVoltDB implements VoltDBInterface, RestoreAgent.Callback, HostM
                     }
                     hostLog.info(e.getValue());
                 }
+                VoltTrace.add(VoltTrace::endDuration);
 
                 //Construct the list of partitions and sites because it simply doesn't exist anymore
+                VoltTrace.add(() -> VoltTrace.beginDuration("uac_context_construct_sites_partitions", VoltTrace.Category.SPSITE));
                 SiteTracker siteTracker = VoltDB.instance().getSiteTrackerForSnapshot();
                 List<Long> sites = siteTracker.getSitesForHost(m_messenger.getHostId());
 
@@ -2975,6 +2982,7 @@ public class RealVoltDB implements VoltDBInterface, RestoreAgent.Callback, HostM
                     Integer partition = siteTracker.getPartitionForSite(site);
                     partitions.add(partition);
                 }
+                VoltTrace.add(VoltTrace::endDuration);
                 VoltTrace.add(VoltTrace::endDuration);
 
                 VoltTrace.add(() -> VoltTrace.beginDuration("uac_update_export", VoltTrace.Category.SPSITE));
