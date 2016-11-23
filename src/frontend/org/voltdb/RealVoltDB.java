@@ -2938,6 +2938,7 @@ public class RealVoltDB implements VoltDBInterface, RestoreAgent.Callback, HostM
                 SortedMap<String, String> oldDbgMap = m_catalogContext.getDebuggingInfoFromCatalog();
                 byte[] oldDeployHash = m_catalogContext.deploymentHash;
 
+                VoltTrace.add(() -> VoltTrace.beginDuration("uac_update_context", VoltTrace.Category.SPSITE));
                 // 0. A new catalog! Update the global context and the context tracker
                 m_catalogContext =
                     m_catalogContext.update(
@@ -2948,6 +2949,7 @@ public class RealVoltDB implements VoltDBInterface, RestoreAgent.Callback, HostM
                             diffCommands,
                             true,
                             deploymentBytes);
+
                 final CatalogSpecificPlanner csp = new CatalogSpecificPlanner( m_asyncCompilerAgent, m_catalogContext);
                 m_txnIdToContextTracker.put(currentTxnId,
                         new ContextTracker(
@@ -2973,11 +2975,14 @@ public class RealVoltDB implements VoltDBInterface, RestoreAgent.Callback, HostM
                     Integer partition = siteTracker.getPartitionForSite(site);
                     partitions.add(partition);
                 }
+                VoltTrace.add(VoltTrace::endDuration);
 
-
+                VoltTrace.add(() -> VoltTrace.beginDuration("uac_update_export", VoltTrace.Category.SPSITE));
                 // 1. update the export manager.
                 ExportManager.instance().updateCatalog(m_catalogContext, partitions);
+                VoltTrace.add(VoltTrace::endDuration);
 
+                VoltTrace.add(() -> VoltTrace.beginDuration("uac_update_systemsetting", VoltTrace.Category.SPSITE));
                 // 1.1 Update the elastic join throughput settings
                 if (m_elasticJoinService != null) m_elasticJoinService.updateConfig(m_catalogContext);
 
@@ -2986,12 +2991,17 @@ public class RealVoltDB implements VoltDBInterface, RestoreAgent.Callback, HostM
                     m_config.m_deadHostTimeoutMS = m_catalogContext.cluster.getHeartbeattimeout() * 1000;
                     m_messenger.setDeadHostTimeout(m_config.m_deadHostTimeoutMS);
                 }
+                VoltTrace.add(VoltTrace::endDuration);
 
+                VoltTrace.add(() -> VoltTrace.beginDuration("uac_update_ci", VoltTrace.Category.SPSITE));
                 // 2. update client interface (asynchronously)
                 //    CI in turn updates the planner thread.
                 if (m_clientInterface != null) {
                     m_clientInterface.notifyOfCatalogUpdate();
                 }
+                VoltTrace.add(VoltTrace::endDuration);
+
+                VoltTrace.add(() -> VoltTrace.beginDuration("uac_update_httpclient", VoltTrace.Category.SPSITE));
 
                 // 3. update HTTPClientInterface (asynchronously)
                 // This purges cached connection state so that access with
@@ -3000,11 +3010,16 @@ public class RealVoltDB implements VoltDBInterface, RestoreAgent.Callback, HostM
                 {
                     m_adminListener.notifyOfCatalogUpdate();
                 }
+                VoltTrace.add(VoltTrace::endDuration);
 
+                VoltTrace.add(() -> VoltTrace.beginDuration("uac_update_stats", VoltTrace.Category.SPSITE));
                 // 4. Flush StatisticsAgent old catalog statistics.
                 // Otherwise, the stats agent will hold all old catalogs
                 // in memory.
                 getStatsAgent().notifyOfCatalogUpdate();
+                VoltTrace.add(VoltTrace::endDuration);
+
+                VoltTrace.add(() -> VoltTrace.beginDuration("uac_update_MPI", VoltTrace.Category.MPI));
 
                 // 5. MPIs don't run fragments. Update them here. Do
                 // this after flushing the stats -- this will re-register
@@ -3012,11 +3027,15 @@ public class RealVoltDB implements VoltDBInterface, RestoreAgent.Callback, HostM
                 if (m_MPI != null) {
                     m_MPI.updateCatalog(diffCommands, m_catalogContext, csp);
                 }
+                VoltTrace.add(VoltTrace::endDuration);
 
+                VoltTrace.add(() -> VoltTrace.beginDuration("uac_update_import", VoltTrace.Category.SPSITE));
                 // Update catalog for import processor this should be just/stop start and updat partitions.
                 ImportManager.instance().updateCatalog(m_catalogContext, m_messenger);
+                VoltTrace.add(VoltTrace::endDuration);
 
                 // 6. Perform updates required by the DR subsystem
+                VoltTrace.add(() -> VoltTrace.beginDuration("uac_update_import", VoltTrace.Category.SPSITE));
 
                 // 6.1. Create the DR consumer if we've just enabled active-active.
                 // Perform any actions that would have been taken during the ordinary
@@ -3039,21 +3058,30 @@ public class RealVoltDB implements VoltDBInterface, RestoreAgent.Callback, HostM
                     m_producerDRGateway.updateCatalog(m_catalogContext,
                             VoltDB.getReplicationPort(m_catalogContext.cluster.getDrproducerport()));
                 }
+                VoltTrace.add(VoltTrace::endDuration);
 
+                VoltTrace.add(() -> VoltTrace.beginDuration("uac_log_catalogjar", VoltTrace.Category.SPSITE));
                 new ConfigLogging().logCatalogAndDeployment();
+                VoltTrace.add(VoltTrace::endDuration);
 
+                VoltTrace.add(() -> VoltTrace.beginDuration("uac_log_systemsetting", VoltTrace.Category.SPSITE));
                 // log system setting information if the deployment config has changed
                 if (!Arrays.equals(oldDeployHash, m_catalogContext.deploymentHash)) {
                     logSystemSettingFromCatalogContext();
                 }
+                VoltTrace.add(VoltTrace::endDuration);
 
+                VoltTrace.add(() -> VoltTrace.beginDuration("uac_restart_monitor", VoltTrace.Category.SPSITE));
                 // restart resource usage monitoring task
                 startResourceUsageMonitor();
+                VoltTrace.add(VoltTrace::endDuration);
 
+                VoltTrace.add(() -> VoltTrace.beginDuration("uac_check_heap_thread", VoltTrace.Category.SPSITE));
                 checkHeapSanity(MiscUtils.isPro(), m_catalogContext.tables.size(),
                         (m_iv2Initiators.size() - 1), m_configuredReplicationFactor);
 
                 checkThreadsSanity();
+                VoltTrace.add(VoltTrace::endDuration);
 
                 return Pair.of(m_catalogContext, csp);
             }
