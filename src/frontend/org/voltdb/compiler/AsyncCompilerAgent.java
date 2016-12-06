@@ -44,6 +44,7 @@ import org.voltdb.messaging.LocalMailbox;
 import org.voltdb.parser.SQLLexer;
 import org.voltdb.planner.StatementPartitioning;
 import org.voltdb.utils.MiscUtils;
+import org.voltdb.utils.VoltTrace;
 
 import com.google_voltpatches.common.util.concurrent.ListeningExecutorService;
 
@@ -329,7 +330,9 @@ public class AsyncCompilerAgent {
 
     private void dispatchCatalogChangeWork(CatalogChangeWork work)
     {
+        VoltTrace.add(() -> VoltTrace.beginDuration("catalog_diff", VoltTrace.Category.ASYNC));
         final CatalogChangeResult ccr = m_helper.prepareApplicationCatalogDiff(work);
+        VoltTrace.add(VoltTrace::endDuration);
         if (ccr.errorMsg != null) {
             hostLog.info("A request to update the database catalog and/or deployment settings has been rejected. More info returned to client.");
         }

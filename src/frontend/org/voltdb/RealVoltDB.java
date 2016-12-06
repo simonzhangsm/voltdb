@@ -2929,14 +2929,18 @@ public class RealVoltDB implements VoltDBInterface, RestoreAgent.Callback, HostM
                             expectedCatalogVersion + " does not match actual version: " + m_catalogContext.catalogVersion);
                 }
 
+                VoltTrace.add(() -> VoltTrace.beginDuration("uac_log_string", VoltTrace.Category.SPSITE));
                 hostLog.info(String.format("Globally updating the current application catalog and deployment " +
                             "(new hashes %s, %s).",
                         Encoder.hexEncode(catalogBytesHash).substring(0, 10),
                         Encoder.hexEncode(deploymentHash).substring(0, 10)));
+                VoltTrace.add(VoltTrace::endDuration);
 
                 // get old debugging info
+                VoltTrace.add(() -> VoltTrace.beginDuration("uac_generate_debug_info", VoltTrace.Category.SPSITE));
                 SortedMap<String, String> oldDbgMap = m_catalogContext.getDebuggingInfoFromCatalog();
                 byte[] oldDeployHash = m_catalogContext.deploymentHash;
+                VoltTrace.add(VoltTrace::endDuration);
 
                 VoltTrace.add(() -> VoltTrace.beginDuration("uac_update_context", VoltTrace.Category.SPSITE));
                 // 0. A new catalog! Update the global context and the context tracker

@@ -64,7 +64,7 @@ public class VoltTrace extends StatsSource implements Runnable {
     }
 
     public enum Category {
-        CI, MPI, MPSITE, SPI, SPSITE, EE
+        CI, MPI, MPSITE, SPI, SPSITE, EE, ASYNC
     }
 
     private static Map<Character, TraceEventType> s_typeMap = new HashMap<>();

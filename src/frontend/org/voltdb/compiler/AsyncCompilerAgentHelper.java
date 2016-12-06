@@ -34,6 +34,7 @@ import org.voltdb.licensetool.LicenseApi;
 import org.voltdb.utils.CatalogUtil;
 import org.voltdb.utils.Encoder;
 import org.voltdb.utils.InMemoryJarfile;
+import org.voltdb.utils.VoltTrace;
 
 public class AsyncCompilerAgentHelper
 {
@@ -83,6 +84,7 @@ public class AsyncCompilerAgentHelper
             }
             else if (work.invocationName.equals("@UpdateClasses")) {
                 // Need the original catalog bytes, then delete classes, then add
+                VoltTrace.add(() -> VoltTrace.beginDuration("read_jar", VoltTrace.Category.ASYNC));
                 try {
                     newCatalogBytes = context.getCatalogJarBytes();
                 }
@@ -91,8 +93,11 @@ public class AsyncCompilerAgentHelper
                         ioe.getMessage();
                     return retval;
                 }
+                VoltTrace.add(VoltTrace::endDuration);
                 // provided operationString is really a String with class patterns to delete,
                 // provided operationBytes is the jarfile with the upsertable classes
+
+                VoltTrace.add(() -> VoltTrace.beginDuration("modify_classes", VoltTrace.Category.ASYNC));
                 try {
                     newCatalogBytes = modifyCatalogClasses(newCatalogBytes, work.operationString,
                             work.operationBytes);
@@ -102,6 +107,7 @@ public class AsyncCompilerAgentHelper
                         "from catalog: " + e.getMessage();
                     return retval;
                 }
+                VoltTrace.add(VoltTrace::endDuration);
                 // Real deploymentString should be the current deployment, just set it to null
                 // here and let it get filled in correctly later.
                 deploymentString = null;
@@ -148,6 +154,7 @@ public class AsyncCompilerAgentHelper
 
             // get the diff between catalogs
             // try to get the new catalog from the params
+            VoltTrace.add(() -> VoltTrace.beginDuration("load_jar_from_bytes", VoltTrace.Category.ASYNC));
             Pair<InMemoryJarfile, String> loadResults = null;
             try {
                 loadResults = CatalogUtil.loadAndUpgradeCatalogFromJar(newCatalogBytes);
@@ -158,32 +165,47 @@ public class AsyncCompilerAgentHelper
                 retval.errorMsg = ioe.getMessage();
                 return retval;
             }
+            VoltTrace.add(VoltTrace::endDuration);
+
+            VoltTrace.add(() -> VoltTrace.beginDuration("get_full_jar_bytes", VoltTrace.Category.ASYNC));
             newCatalogBytes = loadResults.getFirst().getFullJarBytes();
+            VoltTrace.add(VoltTrace::endDuration);
             retval.catalogBytes = newCatalogBytes;
             retval.isForReplay = work.isForReplay();
+
+            VoltTrace.add(() -> VoltTrace.beginDuration("get_sha1_hash", VoltTrace.Category.ASYNC));
             if (!retval.isForReplay) {
                 retval.catalogHash = loadResults.getFirst().getSha1Hash();
             } else {
                 retval.catalogHash = work.replayHashOverride;
             }
+            VoltTrace.add(VoltTrace::endDuration);
+
             retval.replayTxnId = work.replayTxnId;
             retval.replayUniqueId = work.replayUniqueId;
+            VoltTrace.add(() -> VoltTrace.beginDuration("new_catalog_commands", VoltTrace.Category.ASYNC));
             String newCatalogCommands =
                 CatalogUtil.getSerializedCatalogStringFromJar(loadResults.getFirst());
+            VoltTrace.add(VoltTrace::endDuration);
             retval.upgradedFromVersion = loadResults.getSecond();
             if (newCatalogCommands == null) {
                 retval.errorMsg = "Unable to read from catalog bytes";
                 return retval;
             }
+            VoltTrace.add(() -> VoltTrace.beginDuration("calculate_new_catalog", VoltTrace.Category.ASYNC));
             Catalog newCatalog = new Catalog();
             newCatalog.execute(newCatalogCommands);
+            VoltTrace.add(VoltTrace::endDuration);
 
+            VoltTrace.add(() -> VoltTrace.beginDuration("check_license", VoltTrace.Category.ASYNC));
             String result = CatalogUtil.checkLicenseConstraint(newCatalog, m_licenseApi);
             if (result != null) {
                 retval.errorMsg = result;
                 return retval;
             }
+            VoltTrace.add(VoltTrace::endDuration);
 
+            VoltTrace.add(() -> VoltTrace.beginDuration("retrieve_deployment", VoltTrace.Category.ASYNC));
             // Retrieve the original deployment string, if necessary
             if (deploymentString == null) {
                 // Go get the deployment string from the current catalog context
@@ -197,18 +219,23 @@ public class AsyncCompilerAgentHelper
                     return retval;
                 }
             }
+            VoltTrace.add(VoltTrace::endDuration);
 
+            VoltTrace.add(() -> VoltTrace.beginDuration("parse_deployment", VoltTrace.Category.ASYNC));
             DeploymentType dt  = CatalogUtil.parseDeploymentFromString(deploymentString);
             if (dt == null) {
                 retval.errorMsg = "Unable to update deployment configuration: Error parsing deployment string";
                 return retval;
             }
+            VoltTrace.add(VoltTrace::endDuration);
 
+            VoltTrace.add(() -> VoltTrace.beginDuration("compile_deployment", VoltTrace.Category.ASYNC));
             result = CatalogUtil.compileDeployment(newCatalog, dt, false);
             if (result != null) {
                 retval.errorMsg = "Unable to update deployment configuration: " + result;
                 return retval;
             }
+            VoltTrace.add(VoltTrace::endDuration);
 
             //In non legacy mode discard the path element.
             if (!VoltDB.instance().isRunningWithOldVerbs()) {
@@ -217,23 +244,29 @@ public class AsyncCompilerAgentHelper
                 // updated deployment object
                 dt.getAdminMode().setAdminstartup(false);
             }
+            VoltTrace.add(() -> VoltTrace.beginDuration("get_new_deployment", VoltTrace.Category.ASYNC));
             //Always get deployment after its adjusted.
             retval.deploymentString = CatalogUtil.getDeployment(dt, true);
+            VoltTrace.add(VoltTrace::endDuration);
 
+            VoltTrace.add(() -> VoltTrace.beginDuration("make_deployment_hash", VoltTrace.Category.ASYNC));
             retval.deploymentHash =
                 CatalogUtil.makeDeploymentHash(retval.deploymentString.getBytes(Constants.UTF8ENCODING));
+            VoltTrace.add(VoltTrace::endDuration);
 
             // store the version of the catalog the diffs were created against.
             // verified when / if the update procedure runs in order to verify
             // catalogs only move forward
             retval.expectedCatalogVersion = context.catalogVersion;
 
+            VoltTrace.add(() -> VoltTrace.beginDuration("diff_engine", VoltTrace.Category.ASYNC));
             // compute the diff in StringBuilder
             CatalogDiffEngine diff = new CatalogDiffEngine(context.catalog, newCatalog);
             if (!diff.supported()) {
                 retval.errorMsg = "The requested catalog change(s) are not supported:\n" + diff.errors();
                 return retval;
             }
+            VoltTrace.add(VoltTrace::endDuration);
 
             String commands = diff.commands();
 
