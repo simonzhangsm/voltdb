@@ -323,7 +323,10 @@ public class AsyncCompilerAgentHelper
         // Create a new InMemoryJarfile based on the original catalog bytes,
         // modify it in place based on the @UpdateClasses inputs, and then
         // recompile it if necessary
+        VoltTrace.add(() -> VoltTrace.beginDuration("load_bytes_jar", VoltTrace.Category.ASYNC));
         InMemoryJarfile jarfile = CatalogUtil.loadInMemoryJarFile(oldCatalogBytes);
+        VoltTrace.add(VoltTrace::endDuration);
+
         boolean deletedClasses = false;
         if (deletePatterns != null) {
             String[] patterns = deletePatterns.split(",");

@@ -32,6 +32,7 @@ import org.voltdb.compiler.PlannerTool;
 import org.voltdb.compiler.StatementCompiler;
 import org.voltdb.groovy.GroovyScriptProcedureDelegate;
 import org.voltdb.utils.LogKeys;
+import org.voltdb.utils.VoltTrace;
 
 import com.google_voltpatches.common.collect.ImmutableMap;
 
@@ -88,11 +89,16 @@ public class LoadedProcedureSet {
         m_csp = csp;
         m_plannerTool = catalogContext.m_ptool;
         m_registeredSysProcPlanFragments.clear();
+        VoltTrace.add(() -> VoltTrace.beginDuration("load_sys_procs_1", VoltTrace.Category.SPI));
         ImmutableMap.Builder<String, ProcedureRunner> builder =
                 loadProceduresFromCatalog(catalogContext, backendTarget);
+        VoltTrace.add(VoltTrace::endDuration);
+        VoltTrace.add(() -> VoltTrace.beginDuration("load_sys_procs_2", VoltTrace.Category.SPI));
         loadSystemProcedures(catalogContext, backendTarget, builder);
+        VoltTrace.add(VoltTrace::endDuration);
+        VoltTrace.add(() -> VoltTrace.beginDuration("load_sys_procs_3", VoltTrace.Category.SPI));
         procs = builder.build();
-
+        VoltTrace.add(VoltTrace::endDuration);
     }
 
     private ImmutableMap.Builder<String, ProcedureRunner> loadProceduresFromCatalog(
