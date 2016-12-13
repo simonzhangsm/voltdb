@@ -42,6 +42,7 @@ import org.voltdb.settings.NodeSettings;
 import org.voltdb.utils.CatalogUtil;
 import org.voltdb.utils.InMemoryJarfile;
 import org.voltdb.utils.VoltFile;
+import org.voltdb.utils.VoltTrace;
 
 public class CatalogContext {
     private static final VoltLogger hostLog = new VoltLogger("HOST");
@@ -117,8 +118,12 @@ public class CatalogContext {
 
         if (catalogBytes != null) {
             try {
+                VoltTrace.add(() -> VoltTrace.beginDuration("bytes_to_in_mem_jar", VoltTrace.Category.SPI));
                 m_jarfile = new InMemoryJarfile(catalogBytes);
+                VoltTrace.add(VoltTrace::endDuration);
+                VoltTrace.add(() -> VoltTrace.beginDuration("jar_CRC", VoltTrace.Category.SPI));
                 catalogCRC = m_jarfile.getCRC();
+                VoltTrace.add(VoltTrace::endDuration);
             }
             catch (Exception e) {
                 throw new RuntimeException(e);
@@ -151,15 +156,22 @@ public class CatalogContext {
 
         this.deploymentBytes = deploymentBytes;
         this.deploymentHash = CatalogUtil.makeDeploymentHash(deploymentBytes);
+        VoltTrace.add(() -> VoltTrace.beginDuration("make_deployment_hash", VoltTrace.Category.SPI));
         this.deploymentHashForConfig = CatalogUtil.makeDeploymentHashForConfig(deploymentBytes);
+        VoltTrace.add(VoltTrace::endDuration);
         m_memoizedDeployment = null;
 
+        VoltTrace.add(() -> VoltTrace.beginDuration("default_procs_manager", VoltTrace.Category.SPI));
         m_defaultProcs = new DefaultProcedureManager(database);
+        VoltTrace.add(VoltTrace::endDuration);
 
         m_jdbc = new JdbcDatabaseMetaDataGenerator(catalog, m_defaultProcs, m_jarfile);
+        VoltTrace.add(() -> VoltTrace.beginDuration("planner_tool_constructor", VoltTrace.Category.SPI));
         m_ptool = new PlannerTool(cluster, database, catalogHash);
+        VoltTrace.add(VoltTrace::endDuration);
         catalogVersion = version;
 
+        VoltTrace.add(() -> VoltTrace.beginDuration("add_procs_info", VoltTrace.Category.SPI));
         if (procedures != null) {
             for (Procedure proc : procedures) {
                 if (proc.getSinglepartition()) {
@@ -168,6 +180,7 @@ public class CatalogContext {
                 }
             }
         }
+        VoltTrace.add(VoltTrace::endDuration);
     }
 
     public Cluster getCluster() {
@@ -191,15 +204,23 @@ public class CatalogContext {
             boolean incrementVersion,
             byte[] deploymentBytes)
     {
+        VoltTrace.add(() -> VoltTrace.beginDuration("uac_context_deepCopy", VoltTrace.Category.SPSITE));
         Catalog newCatalog = catalog.deepCopy();
+        VoltTrace.add(VoltTrace::endDuration);
+
+        VoltTrace.add(() -> VoltTrace.beginDuration("uac_context_diff", VoltTrace.Category.SPSITE));
         newCatalog.execute(diffCommands);
+        VoltTrace.add(VoltTrace::endDuration);
+
         int incValue = incrementVersion ? 1 : 0;
         // If there's no new catalog bytes, preserve the old one rather than
         // bashing it
         byte[] bytes = catalogBytes;
         if (bytes == null) {
             try {
+                VoltTrace.add(() -> VoltTrace.beginDuration("uac_context_get_jar_bytes", VoltTrace.Category.SPSITE));
                 bytes = this.getCatalogJarBytes();
+                VoltTrace.add(VoltTrace::endDuration);
             } catch (IOException e) {
                 // Failure is not an option
                 hostLog.fatal(e.getMessage());
@@ -210,6 +231,7 @@ public class CatalogContext {
         if (depbytes == null) {
             depbytes = this.deploymentBytes;
         }
+        VoltTrace.add(() -> VoltTrace.beginDuration("uac_context_constructor", VoltTrace.Category.SPSITE));
         CatalogContext retval =
             new CatalogContext(
                     txnId,
@@ -220,6 +242,7 @@ public class CatalogContext {
                     catalogBytesHash,
                     depbytes,
                     catalogVersion + incValue);
+        VoltTrace.add(VoltTrace::endDuration);
         return retval;
     }
 
@@ -315,12 +338,14 @@ public class CatalogContext {
         // topology
         Deployment deployment = cluster.getDeployment().iterator().next();
         int hostCount = m_dbSettings.getCluster().hostcount();
+        VoltTrace.add(() -> VoltTrace.beginDuration("read_SPH_from_ZK", VoltTrace.Category.SPI));
         Map<Integer, Integer> sphMap = VoltDB.instance().getHostMessenger().getSitesPerHostMapFromZK();
         int totalSitesCount = 0;
         for (Map.Entry<Integer, Integer> e : sphMap.entrySet()) {
             totalSitesCount += e.getValue();
         }
         int localSitesCount = sphMap.get(VoltDB.instance().getHostMessenger().getHostId());
+        VoltTrace.add(VoltTrace::endDuration);
         int kFactor = deployment.getKfactor();
         logLines.put("deployment1",
                 String.format("Cluster has %d hosts with leader hostname: \"%s\". %d local sites count. K = %d.",

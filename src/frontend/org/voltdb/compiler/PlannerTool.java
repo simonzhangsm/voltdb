@@ -40,6 +40,7 @@ import org.voltdb.planner.StatementPartitioning;
 import org.voltdb.planner.TrivialCostModel;
 import org.voltdb.plannodes.AbstractPlanNode;
 import org.voltdb.utils.Encoder;
+import org.voltdb.utils.VoltTrace;
 
 /**
  * Planner tool accepts an already compiled VoltDB catalog and then
@@ -69,6 +70,7 @@ public class PlannerTool {
         m_cache = AdHocCompilerCache.getCacheForCatalogHash(catalogHash);
 
         // LOAD HSQL
+        VoltTrace.add(() -> VoltTrace.beginDuration("load_hsql", VoltTrace.Category.SPI));
         m_hsql = HSQLInterface.loadHsqldb();
         String binDDL = m_database.getSchema();
         String ddl = Encoder.decodeBase64AndDecompress(binDDL);
@@ -86,10 +88,12 @@ public class PlannerTool {
                 throw new RuntimeException("Error creating hsql: " + e.getMessage() + " in DDL statement: " + decoded_cmd);
             }
         }
+        VoltTrace.add(VoltTrace::endDuration);
 
         hostLog.debug("hsql loaded");
 
         // Create and register a singleton planner stats collector, if this is the first time.
+        VoltTrace.add(() -> VoltTrace.beginDuration("planner_stats", VoltTrace.Category.SPI));
         if (m_plannerStats == null) {
             synchronized (this.getClass()) {
                 if (m_plannerStats == null) {
@@ -102,6 +106,7 @@ public class PlannerTool {
                 }
             }
         }
+        VoltTrace.add(VoltTrace::endDuration);
     }
 
     public AdHocPlannedStatement planSqlForTest(String sqlIn) {
