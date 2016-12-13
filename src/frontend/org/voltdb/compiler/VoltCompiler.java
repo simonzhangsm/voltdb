@@ -92,6 +92,7 @@ import org.voltdb.utils.InMemoryJarfile;
 import org.voltdb.utils.InMemoryJarfile.JarLoader;
 import org.voltdb.utils.LogKeys;
 import org.voltdb.utils.MiscUtils;
+import org.voltdb.utils.VoltTrace;
 import org.xml.sax.ErrorHandler;
 import org.xml.sax.SAXException;
 import org.xml.sax.SAXParseException;
@@ -1101,12 +1102,14 @@ public class VoltCompiler {
             }
         }
 
+        VoltTrace.add(() -> VoltTrace.beginDuration("track_procedures", VoltTrace.Category.ASYNC));
         // procedures/procedure
         if (database.getProcedures() != null) {
             for (ProceduresType.Procedure proc : database.getProcedures().getProcedure()) {
                 voltDdlTracker.add(getProcedure(proc));
             }
         }
+        VoltTrace.add(VoltTrace::endDuration);
 
         // classdependencies/classdependency
         if (database.getClassdependencies() != null) {
@@ -1122,10 +1125,14 @@ public class VoltCompiler {
             }
         }
 
-        // shutdown and make a new hsqldb
+        VoltTrace.add(() -> VoltTrace.beginDuration("load_hsqldb", VoltTrace.Category.ASYNC));
         HSQLInterface hsql = HSQLInterface.loadHsqldb();
+        VoltTrace.add(VoltTrace::endDuration);
+        // shutdown and make a new hsqldb
+        VoltTrace.add(() -> VoltTrace.beginDuration("compileDatabase", VoltTrace.Category.ASYNC));
         compileDatabase(db, hsql, voltDdlTracker, cannonicalDDLIfAny, previousDBIfAny, ddlReaderList, database.getExport(), classDependencies,
                         DdlProceduresToLoad.ALL_DDL_PROCEDURES, jarOutput);
+        VoltTrace.add(VoltTrace::endDuration);
     }
 
     /**
@@ -1167,6 +1174,7 @@ public class VoltCompiler {
 
         m_dirtyTables.clear();
 
+        VoltTrace.add(() -> VoltTrace.beginDuration("load_schema", VoltTrace.Category.ASYNC));
         for (final VoltCompilerReader schemaReader : schemaReaders) {
             String origFilename = m_currentFilename;
             try {
@@ -1182,15 +1190,21 @@ public class VoltCompiler {
                 m_currentFilename = origFilename;
             }
         }
+        VoltTrace.add(VoltTrace::endDuration);
 
+        VoltTrace.add(() -> VoltTrace.beginDuration("load_export_for_dr", VoltTrace.Category.ASYNC));
         // When A/A is enabled, create an export table for every DR table to log possible conflicts
         ddlcompiler.loadAutogenExportTableSchema(db, previousDBIfAny, whichProcs);
+        VoltTrace.add(VoltTrace::endDuration);
 
+        VoltTrace.add(() -> VoltTrace.beginDuration("compileToCatalog", VoltTrace.Category.ASYNC));
         ddlcompiler.compileToCatalog(db);
+        VoltTrace.add(VoltTrace::endDuration);
 
         // add database estimates info
         addDatabaseEstimatesInfo(m_estimates, db);
 
+        VoltTrace.add(() -> VoltTrace.beginDuration("process_ddl_exported_tables", VoltTrace.Category.ASYNC));
         // Process DDL exported tables
         NavigableMap<String, NavigableSet<String>> exportTables = voltDdlTracker.getExportedTables();
         for (Entry<String, NavigableSet<String>> e : exportTables.entrySet()) {
@@ -1199,7 +1213,11 @@ public class VoltCompiler {
                 addExportTableToConnector(targetName, tableName, db);
             }
         }
+        VoltTrace.add(VoltTrace::endDuration);
+
+        VoltTrace.add(() -> VoltTrace.beginDuration("processMaterializedViewWarnings", VoltTrace.Category.ASYNC));
         ddlcompiler.processMaterializedViewWarnings(db);
+        VoltTrace.add(VoltTrace::endDuration);
         // Process and add exports and connectors to the catalog
         // Must do this before compiling procedures to deny updates
         // on append-only tables.
@@ -1207,12 +1225,14 @@ public class VoltCompiler {
             // currently, only a single connector is allowed
             compileExport(export, db);
         }
-
+        VoltTrace.add(() -> VoltTrace.beginDuration("compileDRTable", VoltTrace.Category.ASYNC));
         // process DRed tables
         for (Entry<String, String> drNode: voltDdlTracker.getDRedTables().entrySet()) {
             compileDRTable(drNode, db);
         }
+        VoltTrace.add(VoltTrace::endDuration);
 
+        VoltTrace.add(() -> VoltTrace.beginDuration("NO_DDL_PROCEDURES", VoltTrace.Category.ASYNC));
         if (whichProcs != DdlProceduresToLoad.NO_DDL_PROCEDURES) {
             Collection<ProcedureDescriptor> allProcs = voltDdlTracker.getProcedureDescriptors();
             CatalogMap<Procedure> previousProcsIfAny = null;
@@ -1221,6 +1241,7 @@ public class VoltCompiler {
             }
             compileProcedures(db, hsql, allProcs, classDependencies, whichProcs, previousProcsIfAny, jarOutput);
         }
+        VoltTrace.add(VoltTrace::endDuration);
 
         // add extra classes from the DDL
         m_addedClasses = voltDdlTracker.m_extraClassses.toArray(new String[0]);
@@ -2129,6 +2150,7 @@ public class VoltCompiler {
         // Gather DDL files for recompilation
         List<VoltCompilerReader> ddlReaderList = new ArrayList<>();
         Entry<String, byte[]> entry = jarfile.firstEntry();
+        VoltTrace.add(() -> VoltTrace.beginDuration("gather_ddl_to_compile", VoltTrace.Category.ASYNC));
         while (entry != null) {
             String path = entry.getKey();
             // SOMEDAY: It would be better to have a manifest that explicitly lists
@@ -2139,6 +2161,7 @@ public class VoltCompiler {
             }
             entry = jarfile.higherEntry(entry.getKey());
         }
+        VoltTrace.add(VoltTrace::endDuration);
 
         // Use the in-memory jarfile-provided class loader so that procedure
         // classes can be found and copied to the new file that gets written.
@@ -2146,7 +2169,9 @@ public class VoltCompiler {
         try {
             m_classLoader = jarfile.getLoader();
             // Do the compilation work.
+            VoltTrace.add(() -> VoltTrace.beginDuration("compile_internal", VoltTrace.Category.ASYNC));
             InMemoryJarfile jarOut = compileInternal(null, null, null, ddlReaderList, jarfile);
+            VoltTrace.add(VoltTrace::endDuration);
             // Trim the compiler output to try to provide a concise failure
             // explanation
             if (jarOut != null) {

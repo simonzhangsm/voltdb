@@ -375,7 +375,6 @@ public class UpdateApplicationCatalog extends VoltSystemProcedure {
                 // update the local catalog.  Safe to do this thanks to the check to get into here.
                 long uniqueId = m_runner.getUniqueId();
                 long spHandle = m_runner.getTxnState().getNotice().getSpHandle();
-                log.warn("UAC diff cmds:" + commands);
                 context.updateCatalog(commands, p.getFirst(), p.getSecond(),
                         requiresSnapshotIsolation, uniqueId, spHandle);
 

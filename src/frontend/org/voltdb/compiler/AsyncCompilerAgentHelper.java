@@ -329,6 +329,7 @@ public class AsyncCompilerAgentHelper
 
         boolean deletedClasses = false;
         if (deletePatterns != null) {
+            VoltTrace.add(() -> VoltTrace.beginDuration("delete_cls_patterns", VoltTrace.Category.ASYNC));
             String[] patterns = deletePatterns.split(",");
             ClassMatcher matcher = new ClassMatcher();
             // Need to concatenate all the classnames together for ClassMatcher
@@ -346,10 +347,15 @@ public class AsyncCompilerAgentHelper
             for (String classname : matcher.getMatchedClassList()) {
                 jarfile.removeClassFromJar(classname);
             }
+            VoltTrace.add(VoltTrace::endDuration);
         }
         boolean foundClasses = false;
         if (newClassBytes != null) {
+            VoltTrace.add(() -> VoltTrace.beginDuration("bytes_to_in_mem_jar", VoltTrace.Category.ASYNC));
             InMemoryJarfile newJarfile = new InMemoryJarfile(newClassBytes);
+            VoltTrace.add(VoltTrace::endDuration);
+
+            VoltTrace.add(() -> VoltTrace.beginDuration("add_classes", VoltTrace.Category.ASYNC));
             for (Entry<String, byte[]> e : newJarfile.entrySet()) {
                 String filename = e.getKey();
                 if (!filename.endsWith(".class")) {
@@ -358,11 +364,14 @@ public class AsyncCompilerAgentHelper
                 foundClasses = true;
                 jarfile.put(e.getKey(), e.getValue());
             }
+            VoltTrace.add(VoltTrace::endDuration);
         }
         if (deletedClasses || foundClasses) {
             compilerLog.info("Updating java classes available to stored procedures");
             VoltCompiler compiler = new VoltCompiler();
+            VoltTrace.add(() -> VoltTrace.beginDuration("compile_in_mem_jar", VoltTrace.Category.ASYNC));
             compiler.compileInMemoryJarfile(jarfile);
+            VoltTrace.add(VoltTrace::endDuration);
         }
         return jarfile.getFullJarBytes();
     }
