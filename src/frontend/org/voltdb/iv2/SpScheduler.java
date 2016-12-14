@@ -63,13 +63,13 @@ import org.voltdb.messaging.Iv2InitiateTaskMessage;
 import org.voltdb.messaging.Iv2LogFaultMessage;
 import org.voltdb.messaging.MultiPartitionParticipantMessage;
 import org.voltdb.messaging.RepairLogTruncationMessage;
+import org.voltdb.utils.MiscUtils;
+import org.voltdb.utils.VoltTrace;
 
 import com.google_voltpatches.common.primitives.Ints;
 import com.google_voltpatches.common.primitives.Longs;
 import com.google_voltpatches.common.util.concurrent.ListenableFuture;
 import com.google_voltpatches.common.util.concurrent.SettableFuture;
-import org.voltdb.utils.MiscUtils;
-import org.voltdb.utils.VoltTrace;
 
 public class SpScheduler extends Scheduler implements SnapshotCompletionInterest
 {
@@ -1302,7 +1302,7 @@ public class SpScheduler extends Scheduler implements SnapshotCompletionInterest
         // the transaction will be delivered again by the CL for execution once durable
         // Async command logging has to offer the task immediately with a Future for backpressure
         if (m_cl.canOfferTask()) {
-            assert durabilityBackpressureFuture != null;
+//            assert durabilityBackpressureFuture != null;
             m_pendingTasks.offer(task.setDurabilityBackpressureFuture(durabilityBackpressureFuture));
         }
     }

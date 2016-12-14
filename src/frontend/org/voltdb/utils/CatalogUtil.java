@@ -2637,4 +2637,33 @@ public abstract class CatalogUtil {
 
         return clone;
     }
+
+    public static String getDiffCommandsForEE(String diffCmds) {
+        if (diffCmds == null || diffCmds.length() == 0) return "";
+
+        StringBuilder sb = new StringBuilder();
+        String[] cmds = diffCmds.split("\n");
+        boolean skip = false;
+        for (int i = 0; i < cmds.length; i++) {
+            String stmt = cmds[i];
+            String[] cmd = stmt.split(" ");
+            // e.g
+            // add /clusters#cluster/databases#database procedures Vote
+            // set /clusters#cluster/databases#database/procedures#Vote classname "voter.Vote"
+            // set $PREV readonly false
+            if (cmd[0].charAt(0) == 'a' || cmd[0].charAt(0) == 'd') {
+                if (cmd[2].equals("procedures")) {
+                    skip = true;
+                } else {
+                    skip = false;
+                    sb.append(stmt).append("\n");
+                }
+            }
+
+            if (cmd[0].charAt(0) == 's' && !skip) {
+                sb.append(stmt).append("\n");
+            }
+        }
+        return sb.toString();
+    }
 }

@@ -105,7 +105,6 @@ public class AsyncCompilerAgentHelper
                 // work.adhocDDLStmts should be applied to the current catalog
 
                 // TODO(xin): verify whether work.adhocDDLStmts has schema change or not
-
                 try {
                     newCatalogJar = addDDLToCatalog(context.catalog, existingCatalogJar,
                             work.adhocDDLStmts);
