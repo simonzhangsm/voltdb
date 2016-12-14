@@ -1401,7 +1401,7 @@ void VoltDBIPC::getUSOForExportTable(struct ipc_command *cmd) {
 
 void VoltDBIPC::hashinate(struct ipc_command* cmd) {
     hashinate_msg* hash = (hashinate_msg*)cmd;
-    NValueArray& params = m_engine->getParameterContainer();
+    NValueArray& params = m_engine->getExecutorContext()->getParameterContainer();
 
     HashinatorType hashinatorType = static_cast<HashinatorType>(ntohl(hash->hashinatorType));
     int32_t configLength = ntohl(hash->configLength);
