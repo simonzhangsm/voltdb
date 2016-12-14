@@ -2681,7 +2681,7 @@ public abstract class CatalogUtil {
             // set /clusters#cluster/databases#database/procedures#Vote classname "voter.Vote"
             // set $PREV readonly false
             if (cmd[0].charAt(0) == 'a' || cmd[0].charAt(0) == 'd') {
-                if (cmd[2].equals("procedures")) {
+                if (cmd[2].equals("procedures") || cmd[1].contains("procedures#")) {
                     skip = true;
                 } else {
                     skip = false;
