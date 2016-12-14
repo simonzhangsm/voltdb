@@ -159,7 +159,7 @@ class __attribute__((visibility("default"))) VoltDBEngine {
                                  int64_t lastCommittedSpHandle,
                                  int64_t uniqueId,
                                  int64_t undoToken,
-                                 bool traceOn);
+                                 bool traceOn = false);
 
         /**
          * Execute a single, top-level plan fragment.  This method is
