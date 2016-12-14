@@ -88,7 +88,7 @@ class ExecutorContext {
                                int64_t spHandle,
                                int64_t lastCommittedSpHandle,
                                int64_t uniqueId,
-                               bool traceOn)
+                               bool traceOn = false)
     {
         m_undoQuantum = undoQuantum;
         m_spHandle = spHandle;
