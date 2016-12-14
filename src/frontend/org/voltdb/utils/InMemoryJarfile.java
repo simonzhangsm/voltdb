@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.jar.JarEntry;
 import java.util.jar.JarInputStream;
@@ -57,6 +58,7 @@ public class InMemoryJarfile extends TreeMap<String, byte[]> {
 
     private static final long serialVersionUID = 1L;
     protected final JarLoader m_loader = new JarLoader();
+    SortedSet<String> m_classesForDeletes = null;
 
     ///////////////////////////////////////////////////////
     // CONSTRUCTION
@@ -399,6 +401,14 @@ public class InMemoryJarfile extends TreeMap<String, byte[]> {
         }
         copy.m_loader.initFrom(m_loader);
         return copy;
+    }
+
+    public void registerClassesDeletes(SortedSet<String> deletes) {
+        m_classesForDeletes = deletes;
+    }
+
+    public void registerClassesAdds(SortedSet<String> deletes) {
+        m_classesForDeletes = deletes;
     }
 
     ///////////////////////////////////////////////////////

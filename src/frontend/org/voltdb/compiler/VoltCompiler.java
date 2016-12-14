@@ -665,10 +665,13 @@ public class VoltCompiler {
         }
 
         // Build DDL from Catalog Data
+        VoltTrace.add(() -> VoltTrace.beginDuration("build_ddl_from_catalog", VoltTrace.Category.ASYNC));
         String ddlWithBatchSupport = CatalogSchemaTools.toSchema(catalog, m_importLines);
         m_canonicalDDL = CatalogSchemaTools.toSchemaWithoutInlineBatches(ddlWithBatchSupport);
+        VoltTrace.add(VoltTrace::endDuration);
 
         // generate the catalog report and write it to disk
+        VoltTrace.add(() -> VoltTrace.beginDuration("generate_catalog_report", VoltTrace.Category.ASYNC));
         try {
             VoltDBInterface voltdb = VoltDB.instance();
             // try to get a catalog context
@@ -718,11 +721,14 @@ public class VoltCompiler {
         }
 
         jarOutput.put(AUTOGEN_DDL_FILE_NAME, m_canonicalDDL.getBytes(Constants.UTF8ENCODING));
+        VoltTrace.add(VoltTrace::endDuration);
+
         if (DEBUG_VERIFY_CATALOG) {
             debugVerifyCatalog(jarOutput, catalog);
         }
 
         // WRITE CATALOG TO JAR HERE
+        VoltTrace.add(() -> VoltTrace.beginDuration("write_catalog_to_jar", VoltTrace.Category.ASYNC));
         final String catalogCommands = catalog.serialize();
 
         byte[] catalogBytes = catalogCommands.getBytes(Constants.UTF8ENCODING);
@@ -747,7 +753,7 @@ public class VoltCompiler {
         if (hasErrors()) {
             return null;
         }
-
+        VoltTrace.add(VoltTrace::endDuration);
         return jarOutput;
     }
 
