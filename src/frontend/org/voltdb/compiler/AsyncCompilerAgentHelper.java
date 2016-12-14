@@ -55,6 +55,7 @@ public class AsyncCompilerAgentHelper
         retval.hostname = work.hostname;
         retval.user = work.user;
         retval.tablesThatMustBeEmpty = new String[0]; // ensure non-null
+        boolean hasSchemaChange = true;
 
         try {
             // catalog change specific boiler plate
@@ -63,44 +64,31 @@ public class AsyncCompilerAgentHelper
             // will complete with newCatalogBytes actually containing the bytes of the
             // catalog to be applied, and deploymentString will contain an actual deployment string,
             // or null if it still needs to be filled in.
-            byte[] newCatalogBytes = work.operationBytes;
+            InMemoryJarfile newCatalogJar = CatalogUtil.loadInMemoryJarFile(work.operationBytes, true);
+            InMemoryJarfile existingCatalogJar = context.getCatalogJar().deepCopy();
+
             String deploymentString = work.operationString;
             if (work.invocationName.equals("@UpdateApplicationCatalog")) {
-                // Do the straight-forward thing with the args, filling in nulls as appropriate
-                // Grab the current catalog bytes if @UAC had a null catalog
-                // (deployment-only update)
-                if (newCatalogBytes == null) {
-                    try {
-                        newCatalogBytes = context.getCatalogJarBytes();
-                    }
-                    catch (IOException ioe) {
-                        retval.errorMsg = "Unexpected exception retrieving internal catalog bytes: " +
-                            ioe.getMessage();
-                        return retval;
-                    }
+                // Grab the current catalog bytes if @UAC had a null catalog from deployment-only update
+                if (newCatalogJar == null) {
+                    newCatalogJar = existingCatalogJar;
+                    hasSchemaChange = false;
                 }
                 // If the deploymentString is null, we'll fill it in with current deployment later
                 // Otherwise, deploymentString has the right contents, don't need to touch it
             }
             else if (work.invocationName.equals("@UpdateClasses")) {
+                hasSchemaChange = false;
                 // Need the original catalog bytes, then delete classes, then add
                 VoltTrace.add(() -> VoltTrace.beginDuration("read_jar", VoltTrace.Category.ASYNC));
-                try {
-                    newCatalogBytes = context.getCatalogJarBytes();
-                }
-                catch (IOException ioe) {
-                    retval.errorMsg = "Unexpected IO exception retrieving internal catalog bytes: " +
-                        ioe.getMessage();
-                    return retval;
-                }
                 VoltTrace.add(VoltTrace::endDuration);
                 // provided operationString is really a String with class patterns to delete,
                 // provided operationBytes is the jarfile with the upsertable classes
 
                 VoltTrace.add(() -> VoltTrace.beginDuration("modify_classes", VoltTrace.Category.ASYNC));
                 try {
-                    newCatalogBytes = modifyCatalogClasses(newCatalogBytes, work.operationString,
-                            work.operationBytes);
+                    newCatalogJar = modifyCatalogClasses(existingCatalogJar, work.operationString,
+                            newCatalogJar);
                 }
                 catch (IOException e) {
                     retval.errorMsg = "Unexpected IO exception @UpdateClasses modifying classes " +
@@ -115,8 +103,11 @@ public class AsyncCompilerAgentHelper
             else if (work.invocationName.startsWith("@AdHoc")) {
                 // newCatalogBytes and deploymentString should be null.
                 // work.adhocDDLStmts should be applied to the current catalog
+
+                // TODO(xin): verify whether work.adhocDDLStmts has schema change or not
+
                 try {
-                    newCatalogBytes = addDDLToCatalog(context.catalog, context.getCatalogJarBytes(),
+                    newCatalogJar = addDDLToCatalog(context.catalog, existingCatalogJar,
                             work.adhocDDLStmts);
                 }
                 catch (VoltCompilerException vce) {
@@ -134,8 +125,8 @@ public class AsyncCompilerAgentHelper
                     compilerLog.error(retval.errorMsg);
                     return retval;
                 }
-                assert(newCatalogBytes != null);
-                if (newCatalogBytes == null) {
+                assert(newCatalogJar != null);
+                if (newCatalogJar == null) {
                     // Shouldn't ever get here
                     retval.errorMsg =
                         "Unexpected failure in applying DDL statements to original catalog";
@@ -157,7 +148,7 @@ public class AsyncCompilerAgentHelper
             VoltTrace.add(() -> VoltTrace.beginDuration("load_jar_from_bytes", VoltTrace.Category.ASYNC));
             Pair<InMemoryJarfile, String> loadResults = null;
             try {
-                loadResults = CatalogUtil.loadAndUpgradeCatalogFromJar(newCatalogBytes);
+                loadResults = CatalogUtil.loadAndUpgradeCatalogFromJar(newCatalogJar);
             }
             catch (IOException ioe) {
                 // Preserve a nicer message from the jarfile loading rather than
@@ -168,9 +159,9 @@ public class AsyncCompilerAgentHelper
             VoltTrace.add(VoltTrace::endDuration);
 
             VoltTrace.add(() -> VoltTrace.beginDuration("get_full_jar_bytes", VoltTrace.Category.ASYNC));
-            newCatalogBytes = loadResults.getFirst().getFullJarBytes();
+            retval.catalogBytes = loadResults.getFirst().getFullJarBytes();
             VoltTrace.add(VoltTrace::endDuration);
-            retval.catalogBytes = newCatalogBytes;
+
             retval.isForReplay = work.isForReplay();
 
             VoltTrace.add(() -> VoltTrace.beginDuration("get_sha1_hash", VoltTrace.Category.ASYNC));
@@ -280,6 +271,7 @@ public class AsyncCompilerAgentHelper
             retval.reasonsForEmptyTables = emptyTablesAndReasons[1];
             retval.requiresSnapshotIsolation = diff.requiresSnapshotIsolation();
             retval.worksWithElastic = diff.worksWithElastic();
+            retval.hasSchemaChange = hasSchemaChange;
         }
         catch (Exception e) {
             String msg = "Unexpected error in adhoc or catalog update: " + e.getClass() + ", " +
@@ -297,11 +289,9 @@ public class AsyncCompilerAgentHelper
      * jarfile
      * @throws VoltCompilerException
      */
-    private byte[] addDDLToCatalog(Catalog oldCatalog, byte[] oldCatalogBytes, String[] adhocDDLStmts)
+    private InMemoryJarfile addDDLToCatalog(Catalog oldCatalog, InMemoryJarfile oldJarFile, String[] adhocDDLStmts)
     throws IOException, VoltCompilerException
     {
-        InMemoryJarfile jarfile = CatalogUtil.loadInMemoryJarFile(oldCatalogBytes);
-
         StringBuilder sb = new StringBuilder();
         compilerLog.info("Applying the following DDL to cluster:");
         for (String stmt : adhocDDLStmts) {
@@ -313,18 +303,17 @@ public class AsyncCompilerAgentHelper
         compilerLog.trace("Adhoc-modified DDL:\n" + newDDL);
 
         VoltCompiler compiler = new VoltCompiler();
-        compiler.compileInMemoryJarfileWithNewDDL(jarfile, newDDL, oldCatalog);
-        return jarfile.getFullJarBytes();
+        compiler.compileInMemoryJarfileWithNewDDL(oldJarFile, newDDL, oldCatalog);
+        return oldJarFile;
     }
 
-    private byte[] modifyCatalogClasses(byte[] oldCatalogBytes, String deletePatterns,
-            byte[] newClassBytes) throws IOException
+    private InMemoryJarfile modifyCatalogClasses(InMemoryJarfile oldJarFile, String deletePatterns,
+            InMemoryJarfile newJarFile) throws IOException
     {
         // Create a new InMemoryJarfile based on the original catalog bytes,
         // modify it in place based on the @UpdateClasses inputs, and then
         // recompile it if necessary
         VoltTrace.add(() -> VoltTrace.beginDuration("load_bytes_jar", VoltTrace.Category.ASYNC));
-        InMemoryJarfile jarfile = CatalogUtil.loadInMemoryJarFile(oldCatalogBytes);
         VoltTrace.add(VoltTrace::endDuration);
 
         boolean deletedClasses = false;
@@ -334,7 +323,7 @@ public class AsyncCompilerAgentHelper
             ClassMatcher matcher = new ClassMatcher();
             // Need to concatenate all the classnames together for ClassMatcher
             String currentClasses = "";
-            for (String classname : jarfile.getLoader().getClassNames()) {
+            for (String classname : oldJarFile.getLoader().getClassNames()) {
                 currentClasses = currentClasses.concat(classname + "\n");
             }
             matcher.m_classList = currentClasses;
@@ -345,24 +334,20 @@ public class AsyncCompilerAgentHelper
                 }
             }
             for (String classname : matcher.getMatchedClassList()) {
-                jarfile.removeClassFromJar(classname);
+                oldJarFile.removeClassFromJar(classname);
             }
             VoltTrace.add(VoltTrace::endDuration);
         }
         boolean foundClasses = false;
-        if (newClassBytes != null) {
-            VoltTrace.add(() -> VoltTrace.beginDuration("bytes_to_in_mem_jar", VoltTrace.Category.ASYNC));
-            InMemoryJarfile newJarfile = new InMemoryJarfile(newClassBytes);
-            VoltTrace.add(VoltTrace::endDuration);
-
+        if (newJarFile != null) {
             VoltTrace.add(() -> VoltTrace.beginDuration("add_classes", VoltTrace.Category.ASYNC));
-            for (Entry<String, byte[]> e : newJarfile.entrySet()) {
+            for (Entry<String, byte[]> e : newJarFile.entrySet()) {
                 String filename = e.getKey();
                 if (!filename.endsWith(".class")) {
                     continue;
                 }
                 foundClasses = true;
-                jarfile.put(e.getKey(), e.getValue());
+                oldJarFile.put(e.getKey(), e.getValue());
             }
             VoltTrace.add(VoltTrace::endDuration);
         }
@@ -370,9 +355,9 @@ public class AsyncCompilerAgentHelper
             compilerLog.info("Updating java classes available to stored procedures");
             VoltCompiler compiler = new VoltCompiler();
             VoltTrace.add(() -> VoltTrace.beginDuration("compile_in_mem_jar", VoltTrace.Category.ASYNC));
-            compiler.compileInMemoryJarfile(jarfile);
+            compiler.compileJarForClassesChange(oldJarFile);
             VoltTrace.add(VoltTrace::endDuration);
         }
-        return jarfile.getFullJarBytes();
+        return oldJarFile;
     }
 }

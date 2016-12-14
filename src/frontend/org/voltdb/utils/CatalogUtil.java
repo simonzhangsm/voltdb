@@ -216,8 +216,23 @@ public abstract class CatalogUtil {
     {
         // Throws IOException on load failure.
         InMemoryJarfile jarfile = loadInMemoryJarFile(catalogBytes);
+        return loadAndUpgradeCatalogFromJar(jarfile);
+    }
+
+    /**
+     * Load a catalog from the jar.
+     *
+     * @param new in memory jar
+     * @return Pair containing updated InMemoryJarFile and upgraded version (or null if it wasn't upgraded)
+     * @throws IOException
+     *             If the catalog cannot be loaded because it's incompatible, or
+     *             if there is no version information in the catalog.
+     */
+    public static Pair<InMemoryJarfile, String> loadAndUpgradeCatalogFromJar(InMemoryJarfile jarfile)
+        throws IOException
+    {
         // Let VoltCompiler do a version check and upgrade the catalog on the fly.
-        // I.e. jarfile may be modified.
+        // I.e. jarFile may be modified.
         VoltCompiler compiler = new VoltCompiler();
         String upgradedFromVersion = compiler.upgradeCatalogAsNeeded(jarfile);
         return new Pair<>(jarfile, upgradedFromVersion);
@@ -284,9 +299,27 @@ public abstract class CatalogUtil {
     public static InMemoryJarfile loadInMemoryJarFile(byte[] catalogBytes)
             throws IOException
     {
-        assert(catalogBytes != null);
+        return loadInMemoryJarFile(catalogBytes, false);
+    }
+
+    /**
+     * Load an in-memory catalog jar file from jar bytes.
+     *
+     * @param catalogBytes
+     * @param log
+     * @return The in-memory jar containing the loaded catalog.
+     * @throws IOException If the catalog cannot be loaded.
+     */
+    public static InMemoryJarfile loadInMemoryJarFile(byte[] catalogBytes, boolean skipFileNameCheck)
+            throws IOException
+    {
+        if (catalogBytes == null) return null;
 
         InMemoryJarfile jarfile = new InMemoryJarfile(catalogBytes);
+        if (skipFileNameCheck) {
+            return jarfile;
+        }
+
         byte[] serializedCatalogBytes = jarfile.get(CATALOG_FILENAME);
 
         if (null == serializedCatalogBytes) {

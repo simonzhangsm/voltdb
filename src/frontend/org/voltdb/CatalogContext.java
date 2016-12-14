@@ -273,6 +273,15 @@ public class CatalogContext {
     }
 
     /**
+     * Get the in memory jar.
+     * @return
+     * @throws IOException
+     */
+    public InMemoryJarfile getCatalogJar() {
+        return m_jarfile;
+    }
+
+    /**
      * Get the raw bytes of a catalog file for shipping around.
      */
     public byte[] getCatalogJarBytes() throws IOException {

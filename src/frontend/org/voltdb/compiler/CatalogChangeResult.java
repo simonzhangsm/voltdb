@@ -40,4 +40,5 @@ public class CatalogChangeResult extends AsyncCompilerResult {
     public boolean isForReplay;
     public long replayTxnId;
     public long replayUniqueId;
+    public boolean hasSchemaChange;
 }
