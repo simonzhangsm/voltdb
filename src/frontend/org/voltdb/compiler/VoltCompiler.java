@@ -1171,12 +1171,14 @@ public class VoltCompiler {
         // and REPLICATE statements.
         final DDLCompiler ddlcompiler = new DDLCompiler(this, hsql, voltDdlTracker, m_classLoader);
 
+        VoltTrace.add(() -> VoltTrace.beginDuration("load_cannonical_schema", VoltTrace.Category.ASYNC));
         if (cannonicalDDLIfAny != null) {
             // add the file object's path to the list of files for the jar
             m_ddlFilePaths.put(cannonicalDDLIfAny.getName(), cannonicalDDLIfAny.getPath());
 
             ddlcompiler.loadSchema(cannonicalDDLIfAny, db, whichProcs);
         }
+        VoltTrace.add(VoltTrace::endDuration);
 
         m_dirtyTables.clear();
 
@@ -2153,7 +2155,7 @@ public class VoltCompiler {
      */
     public void compileJarForClassesChange(InMemoryJarfile jarfile) throws IOException
     {
-        // Gather DDL files for recompilation
+        // Gather DDL files for re-compilation
         List<VoltCompilerReader> ddlReaderList = new ArrayList<>();
         Entry<String, byte[]> entry = jarfile.firstEntry();
         VoltTrace.add(() -> VoltTrace.beginDuration("gather_ddl_to_compile", VoltTrace.Category.ASYNC));

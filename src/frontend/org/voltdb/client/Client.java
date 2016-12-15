@@ -259,6 +259,9 @@ public interface Client {
     public ClientResponse updateClasses(File jarPath, String classesToDelete)
     throws IOException, NoConnectionsException, ProcCallException;
 
+    public ClientResponse updateClasses(File jarPath, String classesToDelete, String stmts)
+    throws IOException, NoConnectionsException, ProcCallException;
+
     /**
      * <p>Asynchronously invokes UpdateClasses procedure. Does not
      * guarantee that the invocation is actually queued. If there is

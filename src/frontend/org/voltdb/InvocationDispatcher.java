@@ -94,6 +94,7 @@ import org.voltdb.sysprocs.saverestore.SnapshotUtil;
 import org.voltdb.utils.Encoder;
 import org.voltdb.utils.MiscUtils;
 import org.voltdb.utils.VoltFile;
+import org.voltdb.utils.VoltTrace;
 
 import com.google_voltpatches.common.base.Preconditions;
 import com.google_voltpatches.common.base.Splitter;
@@ -101,7 +102,6 @@ import com.google_voltpatches.common.base.Throwables;
 import com.google_voltpatches.common.collect.ImmutableMap;
 import com.google_voltpatches.common.util.concurrent.ListenableFuture;
 import com.google_voltpatches.common.util.concurrent.ListenableFutureTask;
-import org.voltdb.utils.VoltTrace;
 
 public final class InvocationDispatcher {
 
@@ -1044,11 +1044,16 @@ public final class InvocationDispatcher {
             }
         }
         String deploymentString = (String) paramArray[1];
+        String ddlStmts = null;
+        if (paramArray.length > 2) {
+            ddlStmts = (String) paramArray[2];
+        }
+
         LocalObjectMessage work = new LocalObjectMessage(
                 new CatalogChangeWork(
                     m_siteId,
                     task.clientHandle, ccxn.connectionId(), ccxn.getHostnameAndIPAndPort(),
-                    isAdmin, ccxn, catalogBytes, deploymentString,
+                    isAdmin, ccxn, catalogBytes, deploymentString, ddlStmts,
                     task.getProcName(),
                     VoltDB.instance().getReplicationRole() == ReplicationRole.REPLICA,
                     useDdlSchema,

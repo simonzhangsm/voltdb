@@ -17,7 +17,10 @@
 
 package org.voltdb.compiler;
 
+import java.util.List;
+
 import org.voltdb.AuthSystem;
+import org.voltdb.parser.SQLLexer;
 
 public class CatalogChangeWork extends AsyncCompilerWork {
     private static final long serialVersionUID = -5257248292283453286L;
@@ -40,7 +43,7 @@ public class CatalogChangeWork extends AsyncCompilerWork {
     public CatalogChangeWork(
             long replySiteId,
             long clientHandle, long connectionId, String hostname, boolean adminConnection,
-            Object clientData, byte[] operationBytes, String operationString,
+            Object clientData, byte[] operationBytes, String operationString, String ddlStmts,
             String invocationName, boolean onReplica, boolean useAdhocDDL,
             AsyncCompilerWorkCompletionHandler completionHandler,
             AuthSystem.AuthUser user, byte[] replayHashOverride,
@@ -57,7 +60,12 @@ public class CatalogChangeWork extends AsyncCompilerWork {
             this.operationBytes = null;
         }
         this.operationString = operationString;
-        adhocDDLStmts = null;
+        if (ddlStmts == null) {
+            adhocDDLStmts = null;
+        } else {
+            List<String> sqlStatements = SQLLexer.splitStatements(ddlStmts);
+            adhocDDLStmts = sqlStatements.toArray(new String[sqlStatements.size()]);
+        }
         this.replayHashOverride = replayHashOverride;
         this.replayTxnId = replayTxnId;
         this.replayUniqueId = replayUniqeuId;

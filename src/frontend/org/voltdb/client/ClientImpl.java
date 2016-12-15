@@ -575,6 +575,17 @@ public final class ClientImpl implements Client {
     }
 
     @Override
+    public ClientResponse updateClasses(File jarPath, String classesToDelete, String stmts)
+    throws IOException, NoConnectionsException, ProcCallException
+    {
+        byte[] jarbytes = null;
+        if (jarPath != null) {
+            jarbytes = ClientUtils.fileToBytes(jarPath);
+        }
+        return callProcedure("@UpdateClasses", jarbytes, classesToDelete, stmts);
+    }
+
+    @Override
     public boolean updateClasses(ProcedureCallback callback,
                                  File jarPath,
                                  String classesToDelete)

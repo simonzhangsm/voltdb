@@ -317,6 +317,13 @@ public class MockVoltClient implements Client {
     }
 
     @Override
+    public ClientResponse updateClasses(File jarPath, String classesToDelete, String stmts)
+            throws IOException, NoConnectionsException, ProcCallException {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
     public boolean updateClasses(ProcedureCallback callback, File jarPath,
             String classesToDelete) throws IOException, NoConnectionsException {
         // TODO Auto-generated method stub

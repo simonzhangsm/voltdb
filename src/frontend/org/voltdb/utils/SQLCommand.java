@@ -783,7 +783,12 @@ public class SQLCommand
                     if (objectParams[0] != null) {
                         jarfile = new File((String)objectParams[0]);
                     }
-                    printDdlResponse(m_client.updateClasses(jarfile, (String)objectParams[1]));
+                    String stmts = null;
+                    if (objectParams.length > 2) {
+                        stmts = (String)objectParams[2];
+                    }
+
+                    printDdlResponse(m_client.updateClasses(jarfile, (String)objectParams[1], stmts));
                     // Need to reload the procedures and classes
                     loadStoredProcedures(Procedures, Classlist);
                 }
@@ -963,7 +968,8 @@ public class SQLCommand
         Procedures.put("@UpdateApplicationCatalog",
                 ImmutableMap.<Integer, List<String>>builder().put( 2, Arrays.asList("varchar", "varchar")).build());
         Procedures.put("@UpdateClasses",
-                ImmutableMap.<Integer, List<String>>builder().put( 2, Arrays.asList("varchar", "varchar")).build());
+                ImmutableMap.<Integer, List<String>>builder().put( 2, Arrays.asList("varchar", "varchar"))
+                                                             .put( 3, Arrays.asList("varchar", "varchar", "varchar")).build());
         Procedures.put("@UpdateLogging",
                 ImmutableMap.<Integer, List<String>>builder().put( 1, Arrays.asList("varchar")).build());
         Procedures.put("@Promote",

@@ -41,7 +41,7 @@ public class UpdateClassesAcceptancePolicy extends InvocationValidationPolicy {
         final Object [] paramsArray = params.toArray();
         // Either the jar bytes or the deletion can be null, indicating
         // that the user doesn't want to change that component.
-        if (paramsArray.length != 2)
+        if (paramsArray.length != 2 && paramsArray.length != 3)
         {
             return new ClientResponseImpl(ClientResponseImpl.UNEXPECTED_FAILURE,
                     new VoltTable[0],

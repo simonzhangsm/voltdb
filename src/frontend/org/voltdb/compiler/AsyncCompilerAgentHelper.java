@@ -80,15 +80,13 @@ public class AsyncCompilerAgentHelper
             else if (work.invocationName.equals("@UpdateClasses")) {
                 hasSchemaChange = false;
                 // Need the original catalog bytes, then delete classes, then add
-                VoltTrace.add(() -> VoltTrace.beginDuration("read_jar", VoltTrace.Category.ASYNC));
-                VoltTrace.add(VoltTrace::endDuration);
                 // provided operationString is really a String with class patterns to delete,
                 // provided operationBytes is the jarfile with the upsertable classes
 
                 VoltTrace.add(() -> VoltTrace.beginDuration("modify_classes", VoltTrace.Category.ASYNC));
                 try {
-                    newCatalogJar = modifyCatalogClasses(existingCatalogJar, work.operationString,
-                            newCatalogJar);
+                    newCatalogJar = handleUpdateClasses(context.catalog, existingCatalogJar,
+                            work.adhocDDLStmts, work.operationString, newCatalogJar);
                 }
                 catch (IOException e) {
                     retval.errorMsg = "Unexpected IO exception @UpdateClasses modifying classes " +
@@ -283,14 +281,7 @@ public class AsyncCompilerAgentHelper
         return retval;
     }
 
-    /**
-     * Append the supplied adhoc DDL to the current catalog's DDL and recompile the
-     * jarfile
-     * @throws VoltCompilerException
-     */
-    private InMemoryJarfile addDDLToCatalog(Catalog oldCatalog, InMemoryJarfile oldJarFile, String[] adhocDDLStmts)
-    throws IOException, VoltCompilerException
-    {
+    private static String combineStmts(String[] adhocDDLStmts) {
         StringBuilder sb = new StringBuilder();
         compilerLog.info("Applying the following DDL to cluster:");
         for (String stmt : adhocDDLStmts) {
@@ -300,21 +291,33 @@ public class AsyncCompilerAgentHelper
         }
         String newDDL = sb.toString();
         compilerLog.trace("Adhoc-modified DDL:\n" + newDDL);
+        return newDDL;
+    }
+
+    /**
+     * Append the supplied adhoc DDL to the current catalog's DDL and recompile the
+     * jarfile
+     * @throws VoltCompilerException
+     */
+    private InMemoryJarfile addDDLToCatalog(Catalog oldCatalog, InMemoryJarfile oldJarFile, String[] adhocDDLStmts)
+    throws IOException, VoltCompilerException
+    {
+        String newDDL = combineStmts(adhocDDLStmts);
 
         VoltCompiler compiler = new VoltCompiler();
         compiler.compileInMemoryJarfileWithNewDDL(oldJarFile, newDDL, oldCatalog);
         return oldJarFile;
     }
 
-    private InMemoryJarfile modifyCatalogClasses(InMemoryJarfile oldJarFile, String deletePatterns,
-            InMemoryJarfile newJarFile) throws IOException
-    {
-        // Create a new InMemoryJarfile based on the original catalog bytes,
-        // modify it in place based on the @UpdateClasses inputs, and then
-        // recompile it if necessary
-        VoltTrace.add(() -> VoltTrace.beginDuration("load_bytes_jar", VoltTrace.Category.ASYNC));
-        VoltTrace.add(VoltTrace::endDuration);
-
+    /**
+     *
+     * @param oldJarFile
+     * @param deletePatterns
+     * @param newJarFile
+     * @return true if any class is changed
+     */
+    private boolean modifyInMemoryJarClasses(InMemoryJarfile oldJarFile, String deletePatterns,
+            InMemoryJarfile newJarFile) {
         boolean deletedClasses = false;
         if (deletePatterns != null) {
             VoltTrace.add(() -> VoltTrace.beginDuration("delete_cls_patterns", VoltTrace.Category.ASYNC));
@@ -350,11 +353,31 @@ public class AsyncCompilerAgentHelper
             }
             VoltTrace.add(VoltTrace::endDuration);
         }
-        if (deletedClasses || foundClasses) {
+
+        return deletedClasses || foundClasses;
+    }
+
+    private InMemoryJarfile handleUpdateClasses(Catalog oldCatalog, InMemoryJarfile oldJarFile,
+            String[] stmts, String deletePatterns, InMemoryJarfile newJarFile)
+                    throws IOException, VoltCompilerException
+    {
+        // Create a new InMemoryJarfile based on the original catalog bytes,
+        // modify it in place based on the @UpdateClasses inputs, and then
+        // recompile it if necessary
+
+        boolean changed = modifyInMemoryJarClasses(oldJarFile, deletePatterns, newJarFile);
+        if (changed) {
             compilerLog.info("Updating java classes available to stored procedures");
             VoltCompiler compiler = new VoltCompiler();
             VoltTrace.add(() -> VoltTrace.beginDuration("compile_in_mem_jar", VoltTrace.Category.ASYNC));
-            compiler.compileJarForClassesChange(oldJarFile);
+            // TODO(xin): verify these new DDL are just "Create procedure"
+            if (stmts == null) {
+                compiler.compileJarForClassesChange(oldJarFile);
+            } else {
+                String newDDL = combineStmts(stmts);
+                compiler.compileInMemoryJarfileWithNewDDL(oldJarFile, newDDL, oldCatalog);
+            }
+
             VoltTrace.add(VoltTrace::endDuration);
         }
         return oldJarFile;

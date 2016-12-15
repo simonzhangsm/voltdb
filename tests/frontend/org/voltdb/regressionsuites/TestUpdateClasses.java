@@ -177,6 +177,79 @@ public class TestUpdateClasses extends AdhocDDLTestBase {
     }
 
     @Test
+    public void testBasicWithDDLStmts() throws Exception {
+        System.out.println("\n\n-----\n testBasic with create procedure statment \n-----\n\n");
+
+        String pathToCatalog = Configuration.getPathToCatalogForTest("updateclasses.jar");
+        String pathToDeployment = Configuration.getPathToCatalogForTest("updateclasses.xml");
+        VoltProjectBuilder builder = new VoltProjectBuilder();
+        builder.addLiteralSchema("-- Don't care");
+        builder.setUseDDLSchema(true);
+        boolean success = builder.compile(pathToCatalog, 1, 1, 0);
+        assertTrue("Schema compilation failed", success);
+        MiscUtils.copyFile(builder.getPathToDeployment(), pathToDeployment);
+
+        // This is maybe cheating a little bit?
+        InMemoryJarfile jarfile = new InMemoryJarfile();
+        for (Class<?> clazz : PROC_CLASSES) {
+            VoltCompiler comp = new VoltCompiler();
+            comp.addClassToJar(jarfile, clazz);
+        }
+        for (Class<?> clazz : EXTRA_CLASSES) {
+            VoltCompiler comp = new VoltCompiler();
+            comp.addClassToJar(jarfile, clazz);
+        }
+        // Add a deployment file just to have something other than classes in the jar
+        jarfile.put("deployment.xml", new File(pathToDeployment));
+
+        try {
+            VoltDB.Configuration config = new VoltDB.Configuration();
+            config.m_pathToCatalog = pathToCatalog;
+            config.m_pathToDeployment = pathToDeployment;
+            startSystem(config);
+
+            ClientResponse resp;
+            resp = m_client.callProcedure("@SystemCatalog", "CLASSES");
+            System.out.println(resp.getResults()[0]);
+            // New cluster, you're like summer vacation...
+            assertEquals(0, resp.getResults()[0].getRowCount());
+            assertFalse(VoltTableTestHelpers.moveToMatchingRow(resp.getResults()[0], "CLASS_NAME",
+                        PROC_CLASSES[0].getCanonicalName()));
+            boolean threw = false;
+            try {
+                resp = m_client.callProcedure(PROC_CLASSES[0].getSimpleName());
+            }
+            catch (ProcCallException pce) {
+                assertTrue(pce.getMessage().contains("was not found"));
+                threw = true;
+            }
+            assertTrue(threw);
+
+            // With the third extra DDL statement
+            String stmt = "create procedure from class " + PROC_CLASSES[0].getCanonicalName() + ";\n";
+            resp = m_client.callProcedure("@UpdateClasses", jarfile.getFullJarBytes(), null, stmt);
+            System.out.println(((ClientResponseImpl)resp).toJSONString());
+
+            resp = m_client.callProcedure("@SystemCatalog", "CLASSES");
+            VoltTable results = resp.getResults()[0];
+            System.out.println(results);
+            assertEquals(3, results.getRowCount());
+            assertTrue(VoltTableTestHelpers.moveToMatchingRow(results, "CLASS_NAME",
+                        PROC_CLASSES[0].getCanonicalName()));
+            assertEquals(1L, results.getLong("VOLT_PROCEDURE"));
+            assertEquals(1L, results.getLong("ACTIVE_PROC"));
+            // Verify the new class as a stored procedure
+            resp = m_client.callProcedure(PROC_CLASSES[0].getSimpleName());
+            assertEquals(ClientResponse.SUCCESS, resp.getStatus());
+            results = resp.getResults()[0];
+            assertEquals(10L, results.asScalarLong());
+        }
+        finally {
+            teardownSystem();
+        }
+    }
+
+    @Test
     public void testRoleControl() throws Exception {
         System.out.println("\n\n-----\n testRoleControl \n-----\n\n");
 
