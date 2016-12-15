@@ -613,14 +613,21 @@ public class Inits {
 
     class SetupReplicationRole extends InitWork {
         SetupReplicationRole() {
+            dependsOn(LoadCatalog.class);
         }
 
         @Override
         public void run() {
+            // If --replica is set on the CLI, override the deployment setting.
+            // Otherwise, use deployment setting.
+            if (m_config.m_replicationRole != ReplicationRole.REPLICA &&
+                m_rvdb.getCatalogContext().cluster.getDrrole().equals("replica")) {
+                m_config.m_replicationRole = ReplicationRole.REPLICA;
+            }
+
             try {
                 JSONStringer js = new JSONStringer();
                 js.object();
-                js.keySymbolValuePair("role", m_config.m_replicationRole.ordinal());
                 js.keySymbolValuePair("active", m_rvdb.getReplicationActive());
                 js.endObject();
 
@@ -638,23 +645,13 @@ public class Inits {
                     String discoveredReplicationConfig =
                         new String(zk.getData(VoltZK.replicationconfig, false, null), "UTF-8");
                     JSONObject discoveredjsObj = new JSONObject(discoveredReplicationConfig);
-                    ReplicationRole discoveredRole = ReplicationRole.get((byte) discoveredjsObj.getLong("role"));
-                    if (!discoveredRole.equals(m_config.m_replicationRole)) {
-                        VoltDB.crashGlobalVoltDB("Discovered replication role " + discoveredRole +
-                                " doesn't match locally specified replication role " + m_config.m_replicationRole,
-                                true, null);
-                    }
-
-                    // See if we should bring the server up in WAN replication mode
-                    m_rvdb.setReplicationRole(discoveredRole);
                 } else {
                     String discoveredReplicationConfig =
                             new String(zk.getData(VoltZK.replicationconfig, false, null), "UTF-8");
                     JSONObject discoveredjsObj = new JSONObject(discoveredReplicationConfig);
-                    ReplicationRole discoveredRole = ReplicationRole.get((byte) discoveredjsObj.getLong("role"));
                     boolean replicationActive = discoveredjsObj.getBoolean("active");
                     // See if we should bring the server up in WAN replication mode
-                    m_rvdb.setReplicationRole(discoveredRole);
+                    m_rvdb.setReplicationRole(m_config.m_replicationRole);
                     m_rvdb.setReplicationActive(replicationActive);
                 }
             } catch (Exception e) {
