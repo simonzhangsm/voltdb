@@ -1460,10 +1460,9 @@ public class Site implements Runnable, SiteProcedureConnection, SiteSnapshotConn
 
         diffCmds = CatalogUtil.getDiffCommandsForEE(diffCmds);
 
-        System.out.println("----------------Checking----------------" + diffCmds);
         if (diffCmds.length() == 0) {
             // empty diff cmds for the EE to apply, so skip the JNI call
-            System.out.println("-----------EE DIFF EARLY RETURNED----------------");
+            System.out.println("-----------EE DIFF SKIPED----------------");
             return true;
         }
 

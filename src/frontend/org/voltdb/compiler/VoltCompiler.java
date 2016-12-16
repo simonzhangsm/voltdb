@@ -1247,7 +1247,7 @@ public class VoltCompiler {
             if (previousDBIfAny != null) {
                 previousProcsIfAny = previousDBIfAny.getProcedures();
             }
-            compileProcedures(db, hsql, allProcs, classDependencies, whichProcs, previousProcsIfAny, jarOutput);
+            compileProcedures(db, hsql, allProcs, classDependencies, whichProcs, previousProcsIfAny, jarOutput, m_catalog);
         }
         VoltTrace.add(VoltTrace::endDuration);
 
@@ -1334,7 +1334,8 @@ public class VoltCompiler {
                                    Collection<Class<?>> classDependencies,
                                    DdlProceduresToLoad whichProcs,
                                    CatalogMap<Procedure> prevProcsIfAny,
-                                   InMemoryJarfile jarOutput) throws VoltCompilerException
+                                   InMemoryJarfile jarOutput,
+                                   Catalog catalog) throws VoltCompilerException
     {
         // build a cache of previous SQL stmts
         m_previousCatalogStmts.clear();
@@ -1381,7 +1382,7 @@ public class VoltCompiler {
             else {
                 m_currentFilename = procedureName;
             }
-            ProcedureCompiler.compile(this, hsql, m_estimates, m_catalog, db, procedureDescriptor, jarOutput);
+            ProcedureCompiler.compile(this, hsql, m_estimates, catalog, db, procedureDescriptor, jarOutput);
         }
         // done handling files
         m_currentFilename = NO_FILENAME;
@@ -2086,7 +2087,8 @@ public class VoltCompiler {
      * @throws VoltCompilerException
      *
      */
-    public void compileInMemoryJarfileWithNewDDL(InMemoryJarfile jarfile, String newDDL, Catalog oldCatalog) throws IOException, VoltCompilerException
+    public void compileInMemoryJarfileWithNewDDL(InMemoryJarfile jarfile, String newDDL,
+            Catalog oldCatalog) throws IOException, VoltCompilerException
     {
         String oldDDL = new String(jarfile.get(VoltCompiler.AUTOGEN_DDL_FILE_NAME),
                 Constants.UTF8ENCODING);
@@ -2135,6 +2137,151 @@ public class VoltCompiler {
                 }
                 catch (IOException ioe) {}
             }
+            if (newDDLReader != null) {
+                try {
+                    newDDLReader.close();
+                }
+                catch (IOException ioe) {}
+            }
+        }
+    }
+
+    public void compileJarForClassesChangeWithDDL(InMemoryJarfile jarfile, String newDDL,
+            Catalog oldCatalog, HSQLInterface hsql)
+            throws IOException, VoltCompilerException
+    {
+        // Use the in-memory jarfile-provided class loader so that procedure
+        // classes can be found and copied to the new file that gets written.
+        VoltDDLElementTracker voltDdlTracker = new VoltDDLElementTracker(this);
+        VoltCompilerReader newDDLReader = null;
+        ClassLoader originalClassLoader = m_classLoader;
+        try {
+            m_classLoader = jarfile.getLoader();
+
+            final DDLCompiler ddlcompiler = new DDLCompiler(this, hsql, voltDdlTracker, m_classLoader);
+
+            newDDLReader = new VoltCompilerStringReader("Ad Hoc DDL Input", newDDL);
+            List<VoltCompilerReader> ddlList = new ArrayList<>();
+            ddlList.add(newDDLReader);
+
+            // TODO: deep copy
+            Database previousDB = oldCatalog.getClusters().get("cluster").getDatabases().get("database");
+
+            VoltTrace.add(() -> VoltTrace.beginDuration("load_schema", VoltTrace.Category.ASYNC));
+            for (final VoltCompilerReader schemaReader : ddlList) {
+                String origFilename = m_currentFilename;
+                try {
+                    if (m_currentFilename == null || m_currentFilename.equals(NO_FILENAME))
+                        m_currentFilename = schemaReader.getName();
+
+                    // add the file object's path to the list of files for the jar
+                    m_ddlFilePaths.put(schemaReader.getName(), schemaReader.getPath());
+
+                    ddlcompiler.loadSchema(schemaReader, previousDB, DdlProceduresToLoad.ALL_DDL_PROCEDURES);
+                }
+                finally {
+                    m_currentFilename = origFilename;
+                }
+            }
+            VoltTrace.add(VoltTrace::endDuration);
+
+            VoltTrace.add(() -> VoltTrace.beginDuration("NO_DDL_PROCEDURES", VoltTrace.Category.ASYNC));
+            Collection<ProcedureDescriptor> allProcs = voltDdlTracker.getProcedureDescriptors();
+            CatalogMap<Procedure> previousProcsIfAny = previousDB.getProcedures();
+            ArrayList<Class<?>> classDependencies = new ArrayList<>();
+
+            compileProcedures(previousDB, hsql, allProcs, classDependencies, null, previousProcsIfAny, jarfile, oldCatalog);
+            VoltTrace.add(VoltTrace::endDuration);
+
+            m_importLines = ImmutableSet.copyOf(voltDdlTracker.m_importLines);
+
+            // Build DDL from Catalog Data
+            VoltTrace.add(() -> VoltTrace.beginDuration("build_ddl_from_catalog", VoltTrace.Category.ASYNC));
+            String ddlWithBatchSupport = CatalogSchemaTools.toSchema(oldCatalog, m_importLines);
+            m_canonicalDDL = CatalogSchemaTools.toSchemaWithoutInlineBatches(ddlWithBatchSupport);
+            VoltTrace.add(VoltTrace::endDuration);
+
+
+            // generate the catalog report and write it to disk
+            VoltTrace.add(() -> VoltTrace.beginDuration("generate_catalog_report", VoltTrace.Category.ASYNC));
+            try {
+                VoltDBInterface voltdb = VoltDB.instance();
+                // try to get a catalog context
+                CatalogContext catalogContext = voltdb != null ? voltdb.getCatalogContext() : null;
+                ClusterSettings clusterSettings = catalogContext != null ? catalogContext.getClusterSettings() : null;
+                int tableCount = catalogContext != null ? catalogContext.tables.size() : 0;
+                Deployment deployment = catalogContext != null ? catalogContext.cluster.getDeployment().get("deployment") : null;
+                int hostcount = clusterSettings != null ? clusterSettings.hostcount() : 1;
+                int kfactor = deployment != null ? deployment.getKfactor() : 0;
+                int sitesPerHost = 8;
+                if  (voltdb != null && voltdb.getCatalogContext() != null) {
+                    sitesPerHost =  voltdb.getCatalogContext().getNodeSettings().getLocalSitesCount();
+                }
+                boolean isPro = MiscUtils.isPro();
+
+                long minHeapRqt = RealVoltDB.computeMinimumHeapRqt(isPro, tableCount, sitesPerHost, kfactor);
+                m_report = ReportMaker.report(oldCatalog, minHeapRqt, isPro, hostcount,
+                        sitesPerHost, kfactor, m_warnings, m_canonicalDDL);
+                m_reportPath = null;
+                File file = null;
+
+                // write to working dir when using VoltCompiler directly
+                if (standaloneCompiler) {
+                    file = new File("catalog-report.html");
+                }
+                else {
+                    // it's possible that standaloneCompiler will be false and catalogContext will be null
+                    //   in test code.
+
+                    // if we have a context, write report to voltroot
+                    if (catalogContext != null) {
+                        file = new File(VoltDB.instance().getVoltDBRootPath(), "catalog-report.html");
+                    }
+                }
+
+                // if there's a good place to write the report, do so
+                if (file != null) {
+                    FileWriter fw = new FileWriter(file);
+                    fw.write(m_report);
+                    fw.close();
+                    m_reportPath = file.getAbsolutePath();
+                }
+            }
+            catch (IOException e) {
+                e.printStackTrace();
+                return;
+            }
+
+            VoltTrace.add(() -> VoltTrace.beginDuration("write_catalog_to_jar", VoltTrace.Category.ASYNC));
+            final String catalogCommands = oldCatalog.serialize();
+
+            byte[] catalogBytes = catalogCommands.getBytes(Constants.UTF8ENCODING);
+
+            try {
+                // Don't update buildinfo if it's already present, e.g. while upgrading.
+                // Note when upgrading the version has already been updated by the caller.
+                if (!jarfile.containsKey(CatalogUtil.CATALOG_BUILDINFO_FILENAME)) {
+                    addBuildInfo(jarfile);
+                }
+                jarfile.put(CatalogUtil.CATALOG_FILENAME, catalogBytes);
+                // put the compiler report into the jarfile
+                jarfile.put("catalog-report.html", m_report.getBytes(Constants.UTF8ENCODING));
+            }
+            catch (final Exception e) {
+                e.printStackTrace();
+                return;
+            }
+
+            assert(!hasErrors());
+
+            if (hasErrors()) {
+                return;
+            }
+            VoltTrace.add(VoltTrace::endDuration);
+        }
+        finally {
+            // Restore the original class loader
+            m_classLoader = originalClassLoader;
             if (newDDLReader != null) {
                 try {
                     newDDLReader.close();

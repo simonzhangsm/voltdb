@@ -114,6 +114,10 @@ public class PlannerTool {
         return planSql(sqlIn, infer, false, null);
     }
 
+    public HSQLInterface getHSQL() {
+        return m_hsql;
+    }
+
     private void logException(Exception e, String fmtLabel) {
         compileLog.error(fmtLabel + ": ", e);
     }

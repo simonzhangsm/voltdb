@@ -20,6 +20,7 @@ package org.voltdb.compiler;
 import java.io.IOException;
 import java.util.Map.Entry;
 
+import org.hsqldb_voltpatches.HSQLInterface;
 import org.voltcore.logging.VoltLogger;
 import org.voltcore.utils.Pair;
 import org.voltdb.CatalogContext;
@@ -40,6 +41,7 @@ public class AsyncCompilerAgentHelper
 {
     private static final VoltLogger compilerLog = new VoltLogger("COMPILER");
     private final LicenseApi m_licenseApi;
+    HSQLInterface m_hsql = null;
 
     public AsyncCompilerAgentHelper(LicenseApi licenseApi) {
         m_licenseApi = licenseApi;
@@ -55,11 +57,13 @@ public class AsyncCompilerAgentHelper
         retval.hostname = work.hostname;
         retval.user = work.user;
         retval.tablesThatMustBeEmpty = new String[0]; // ensure non-null
-        boolean hasSchemaChange = true;
+        boolean isUpdateClasses = false;
 
         try {
             // catalog change specific boiler plate
             CatalogContext context = VoltDB.instance().getCatalogContext();
+            m_hsql = context.m_ptool.getHSQL();
+
             // Start by assuming we're doing an @UpdateApplicationCatalog.  If-ladder below
             // will complete with newCatalogBytes actually containing the bytes of the
             // catalog to be applied, and deploymentString will contain an actual deployment string,
@@ -72,13 +76,12 @@ public class AsyncCompilerAgentHelper
                 // Grab the current catalog bytes if @UAC had a null catalog from deployment-only update
                 if (newCatalogJar == null) {
                     newCatalogJar = existingCatalogJar;
-                    hasSchemaChange = false;
                 }
                 // If the deploymentString is null, we'll fill it in with current deployment later
                 // Otherwise, deploymentString has the right contents, don't need to touch it
             }
             else if (work.invocationName.equals("@UpdateClasses")) {
-                hasSchemaChange = false;
+                isUpdateClasses = true;
                 // Need the original catalog bytes, then delete classes, then add
                 // provided operationString is really a String with class patterns to delete,
                 // provided operationBytes is the jarfile with the upsertable classes
@@ -203,7 +206,7 @@ public class AsyncCompilerAgentHelper
                 }
                 if (deploymentBytes == null || deploymentString == null) {
                     retval.errorMsg = "No deployment file provided and unable to recover previous " +
-                        "deployment settings.";
+                            "deployment settings.";
                     return retval;
                 }
             }
@@ -239,7 +242,7 @@ public class AsyncCompilerAgentHelper
 
             VoltTrace.add(() -> VoltTrace.beginDuration("make_deployment_hash", VoltTrace.Category.ASYNC));
             retval.deploymentHash =
-                CatalogUtil.makeDeploymentHash(retval.deploymentString.getBytes(Constants.UTF8ENCODING));
+                    CatalogUtil.makeDeploymentHash(retval.deploymentString.getBytes(Constants.UTF8ENCODING));
             VoltTrace.add(VoltTrace::endDuration);
 
             // store the version of the catalog the diffs were created against.
@@ -268,7 +271,7 @@ public class AsyncCompilerAgentHelper
             retval.reasonsForEmptyTables = emptyTablesAndReasons[1];
             retval.requiresSnapshotIsolation = diff.requiresSnapshotIsolation();
             retval.worksWithElastic = diff.worksWithElastic();
-            retval.hasSchemaChange = hasSchemaChange;
+            retval.hasSchemaChange = isUpdateClasses;
         }
         catch (Exception e) {
             String msg = "Unexpected error in adhoc or catalog update: " + e.getClass() + ", " +
@@ -375,7 +378,8 @@ public class AsyncCompilerAgentHelper
                 compiler.compileJarForClassesChange(oldJarFile);
             } else {
                 String newDDL = combineStmts(stmts);
-                compiler.compileInMemoryJarfileWithNewDDL(oldJarFile, newDDL, oldCatalog);
+                compiler.compileJarForClassesChangeWithDDL(oldJarFile, newDDL, oldCatalog,
+                        m_hsql);
             }
 
             VoltTrace.add(VoltTrace::endDuration);

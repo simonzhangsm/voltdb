@@ -685,7 +685,9 @@ public abstract class CatalogUtil {
             validateDeployment(catalog, deployment);
 
             // add our hacky Deployment to the catalog
-            catalog.getClusters().get("cluster").getDeployment().add("deployment");
+            if (catalog.getClusters().get("cluster").getDeployment().get("deployment") == null) {
+                catalog.getClusters().get("cluster").getDeployment().add("deployment");
+            }
 
             // set the cluster info
             setClusterInfo(catalog, deployment);
@@ -745,7 +747,10 @@ public abstract class CatalogUtil {
     private static void setCommandLogInfo(Catalog catalog, CommandLogType commandlog) {
         int fsyncInterval = 200;
         int maxTxnsBeforeFsync = Integer.MAX_VALUE;
-        org.voltdb.catalog.CommandLog config = catalog.getClusters().get("cluster").getLogconfig().add("log");
+        org.voltdb.catalog.CommandLog config = catalog.getClusters().get("cluster").getLogconfig().get("log");
+        if (config == null) {
+            config = catalog.getClusters().get("cluster").getLogconfig().add("log");
+        }
 
         Frequency freq = commandlog.getFrequency();
         if (freq != null) {
@@ -1146,7 +1151,10 @@ public abstract class CatalogUtil {
         if (deployment.getPartitionDetection().isEnabled()) {
             catCluster.setNetworkpartition(true);
             CatalogMap<SnapshotSchedule> faultsnapshots = catCluster.getFaultsnapshots();
-            SnapshotSchedule sched = faultsnapshots.add("CLUSTER_PARTITION");
+            SnapshotSchedule sched = faultsnapshots.get("CLUSTER_PARTITION");
+            if (sched == null) {
+                sched = faultsnapshots.add("CLUSTER_PARTITION");
+            }
             if (deployment.getPartitionDetection().getSnapshot() != null) {
                 sched.setPrefix(deployment.getPartitionDetection().getSnapshot().getPrefix());
             }
@@ -1180,9 +1188,13 @@ public abstract class CatalogUtil {
     private static void setSystemSettings(DeploymentType deployment,
                                           Deployment catDeployment)
     {
-        // Create catalog Systemsettings
         Systemsettings syssettings =
-            catDeployment.getSystemsettings().add("systemsettings");
+                catDeployment.getSystemsettings().get("systemsettings");
+
+        // Create catalog Systemsettings
+        if (syssettings == null) {
+            syssettings = catDeployment.getSystemsettings().add("systemsettings");
+        }
 
         syssettings.setTemptablemaxsize(deployment.getSystemsettings().getTemptables().getMaxsize());
         syssettings.setSnapshotpriority(deployment.getSystemsettings().getSnapshot().getPriority());
@@ -1700,7 +1712,10 @@ public abstract class CatalogUtil {
      */
     private static void setSnapshotInfo(Catalog catalog, SnapshotType snapshotSettings) {
         Database db = catalog.getClusters().get("cluster").getDatabases().get("database");
-        SnapshotSchedule schedule = db.getSnapshotschedule().add("default");
+        SnapshotSchedule schedule = db.getSnapshotschedule().get("default");
+        if (schedule == null) {
+            schedule = db.getSnapshotschedule().add("default");
+        }
         schedule.setEnabled(snapshotSettings.isEnabled());
         String frequency = snapshotSettings.getFrequency();
         if (!frequency.endsWith("s") &&

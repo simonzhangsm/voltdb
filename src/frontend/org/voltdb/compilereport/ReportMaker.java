@@ -652,7 +652,9 @@ public class ReportMaker {
 
         // this needs to be run before the ProcedureAnnotation is used below
         // because it modifies it
-        String statementsTable = generateStatementsTable(tables, procedure);
+        String statementsTable = "";
+        //FIXME: xin
+        //generateStatementsTable(tables, procedure)
 
         // output what schema this interacts with
         // make sure tables appear in only one category

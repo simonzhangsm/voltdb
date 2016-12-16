@@ -3150,7 +3150,7 @@ public class RealVoltDB implements VoltDBInterface, RestoreAgent.Callback, HostM
                 VoltTrace.add(VoltTrace::endDuration);
 
                 VoltTrace.add(() -> VoltTrace.beginDuration("uac_log_catalogjar", VoltTrace.Category.SPSITE));
-//                new ConfigLogging().logCatalogAndDeployment();
+                new ConfigLogging().logCatalogAndDeployment();
                 VoltTrace.add(VoltTrace::endDuration);
 
                 VoltTrace.add(() -> VoltTrace.beginDuration("uac_log_systemsetting", VoltTrace.Category.SPSITE));
