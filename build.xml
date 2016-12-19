@@ -200,16 +200,18 @@
     <include name='org/voltdb/regressionsuites/TestJ*.class' />
     <include name='org/voltdb/regressionsuites/TestK*.class' />
     <include name='org/voltdb/regressionsuites/TestL*.class' />
-    <include name='org/voltdb/regressionsuites/TestM*.class' />
-    <include name='org/voltdb/regressionsuites/TestN*.class' />
-    <include name='org/voltdb/regressionsuites/TestO*.class' />
-    <include name='org/voltdb/regressionsuites/TestP*.class' />
+    <include name='org/voltdb/regressionsuites/TestMaw*.class' />
+
     <!-- Exclude tests -->
     <patternset refid='junit.exclusions'/>
 </patternset>
 
 <patternset id='junit.regression.h2.path'>
     <!-- Standard junit fileset -->
+    <include name='org/voltdb/regressionsuites/TestMax*.class' />
+    <include name='org/voltdb/regressionsuites/TestN*.class' />
+    <include name='org/voltdb/regressionsuites/TestO*.class' />
+    <include name='org/voltdb/regressionsuites/TestP*.class' />
     <include name='org/voltdb/regressionsuites/TestQ*.class' />
     <include name='org/voltdb/regressionsuites/TestR*.class' />
     <include name='org/voltdb/regressionsuites/TestS*.class' />
