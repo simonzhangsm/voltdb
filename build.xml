@@ -30,8 +30,12 @@
             includes="@{includes}"
             encoding='UTF-8'
             debug='true'
+            nowarn='true'
             includeAntRuntime='false'>
-            <compilerarg if:set="use_jacoco" value="-g:lines"/>
+            <compilerarg value="-XDignore.symbol.file" />
+	    <compilerarg value="-Xlint:none"/>
+	    <compilerarg value="-Xpkginfo:nonempty"/>
+	    <compilerarg if:set="use_jacoco" value="-g:lines"/>
             <classpath refid="project.classpath" />
         </javac>
     </sequential>
