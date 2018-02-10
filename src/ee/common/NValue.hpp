@@ -48,7 +48,7 @@
 #include "common/value_defs.h"
 #include "GeographyPointValue.hpp"
 #include "GeographyValue.hpp"
-#include "utf8.h"
+#include "utf8/utf8.h"
 #include "murmur3/MurmurHash3.h"
 
 namespace voltdb {
