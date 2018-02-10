@@ -72,6 +72,15 @@ class BuildContext:
         print("ERROR: Don't know what platform to use to configure openssl.")
         sys.exit(-1)
 
+    def getJNIHeaders(self):
+        if self.PLATFORM == 'Darwin':
+            JNI_HEADERS = os.popen('dirname $(dirname $(readlink $(which java)))').read().strip('\n')
+            JNI_HEADERS += "/Headers"
+        if self.PLATFORM == 'Linux':
+            JNI_HEADERS = os.popen('dirname $(dirname $(dirname $(readlink -f $(which java))))').read().strip('\n')
+            JNI_HEADERS += "/include"
+        return JNI_HEADERS
+
     def compilerName(self):
         self.getCompilerVersion()
         if self.COMPILER_NAME:
@@ -445,6 +454,7 @@ def buildMakefile(CTX):
     for dir in CTX.OBJ_INCLUDE_DIRS:
         MAKECPPFLAGS += " -I${OBJDIR}/%s" % (dir)
     MAKECPPFLAGS += " -I${OBJDIR}"
+    MAKECPPFLAGS += " -I%s" % (CTX.getJNIHeaders())
     JNILIBFLAGS = " ".join(CTX.JNILIBFLAGS.split())
     JNIBINFLAGS = " ".join(CTX.JNIBINFLAGS.split())
     INPUT_PREFIX = CTX.INPUT_PREFIX.rstrip("/")
