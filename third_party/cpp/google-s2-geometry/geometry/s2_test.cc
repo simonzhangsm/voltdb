@@ -9,12 +9,12 @@ using std::reverse;
 #include <unordered_set>
 using std::unordered_set;
 
-#include "s2geo/s2.h"
-#include "s2geo/base/logging.h"
-#include "s2geo/s2latlng.h"
-#include "s2geo/s2testing.h"
-#include "s2geo/util/math/matrix3x3-inl.h"
-#include "s2geo/testing/base/public/gunit.h"
+#include "s2/s2.h"
+#include "s2/base/logging.h"
+#include "s2/s2latlng.h"
+#include "s2/s2testing.h"
+#include "s2/util/math/matrix3x3-inl.h"
+#include "s2/testing/base/public/gunit.h"
 
 static inline int SwapAxes(int ij) {
   return ((ij >> 1) & 1) + ((ij & 1) << 1);

@@ -27,17 +27,17 @@
 /// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 /// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include "s2geo/testing/base/public/testing_util.h"
+#include "s2/testing/base/public/testing_util.h"
 
 #include <string>
 
-#include "s2geo/base/logging.h"
-#include "s2geo/base/protobuf/coded_stream.h"
-#include "s2geo/base/protobuf/message.h"
-#include "s2geo/base/protobuf/text_format.h"
-#include "s2geo/base/protobuf/wire_format.h"
-#include "s2geo/base/protobuf/zero_copy_stream_impl.h"
-#include "s2geo/base/scoped_ptr.h"
+#include "s2/base/logging.h"
+#include "s2/base/protobuf/coded_stream.h"
+#include "s2/base/protobuf/message.h"
+#include "s2/base/protobuf/text_format.h"
+#include "s2/base/protobuf/wire_format.h"
+#include "s2/base/protobuf/zero_copy_stream_impl.h"
+#include "s2/base/scoped_ptr.h"
 
 namespace mozc {
 namespace testing {

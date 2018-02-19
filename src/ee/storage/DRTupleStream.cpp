@@ -42,23 +42,16 @@
 using namespace std;
 using namespace voltdb;
 
-DRTupleStream::DRTupleStream(int partitionId, size_t defaultBufferSize, uint8_t drProtocolVersion)
-    : AbstractDRTupleStream(partitionId, defaultBufferSize, drProtocolVersion),
-      m_initialHashFlag(partitionId == 16383 ? TXN_PAR_HASH_REPLICATED : TXN_PAR_HASH_PLACEHOLDER),
-      m_hashFlag(m_initialHashFlag),
-      m_firstParHash(LONG_MAX),
-      m_lastParHash(LONG_MAX),
-      m_hasReplicatedStream(drProtocolVersion < NO_REPLICATED_STREAM_PROTOCOL_VERSION),
-      m_wasFirstChangeReplicatedTable(false),
-      m_wasLastChangeReplicatedTable(false),
-      m_beginTxnUso(0),
-      m_lastCommittedSpUniqueId(0),
-      m_lastCommittedMpUniqueId(0)
-{}
+DRTupleStream::DRTupleStream(int partitionId, size_t defaultBufferSize, uint8_t drProtocolVersion){
+	AbstractDRTupleStream(partitionId, defaultBufferSize, drProtocolVersion);
+	m_initialHashFlag =partitionId == 16383 ? TXN_PAR_HASH_REPLICATED : TXN_PAR_HASH_PLACEHOLDER;
+	m_hashFlag = m_initialHashFlag;
+	m_hasReplicatedStream = drProtocolVersion < NO_REPLICATED_STREAM_PROTOCOL_VERSION;
+}
 
 size_t DRTupleStream::truncateTable(int64_t lastCommittedSpHandle,
                                     char *tableHandle,
-                                    std::string tableName,
+                                    string tableName,
                                     int partitionColumn,
                                     int64_t spHandle,
                                     int64_t uniqueId)

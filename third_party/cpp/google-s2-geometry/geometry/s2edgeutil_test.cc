@@ -1,6 +1,6 @@
 /// Copyright 2005 Google Inc. All Rights Reserved.
 
-#include "s2geo/s2edgeutil.h"
+#include "s2/s2edgeutil.h"
 
 #include <algorithm>
 using std::min;
@@ -15,14 +15,14 @@ using std::string;
 using std::vector;
 
 
-#include "s2geo/base/commandlineflags.h"
-#include "s2geo/base/logging.h"
-#include "s2geo/base/scoped_ptr.h"
-/// #include "s2geo/testing/base/public/benchmark.h"
-#include "s2geo/testing/base/public/gunit.h"
-#include "s2geo/s2cap.h"
-#include "s2geo/s2polyline.h"
-#include "s2geo/s2testing.h"
+#include "s2/base/commandlineflags.h"
+#include "s2/base/logging.h"
+#include "s2/base/scoped_ptr.h"
+/// #include "s2/testing/base/public/benchmark.h"
+#include "s2/testing/base/public/gunit.h"
+#include "s2/s2cap.h"
+#include "s2/s2polyline.h"
+#include "s2/s2testing.h"
 
 DECLARE_bool(s2debug);
 

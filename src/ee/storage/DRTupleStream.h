@@ -20,11 +20,12 @@
 
 #include "storage/AbstractDRTupleStream.h"
 
+using namespace std;
 namespace voltdb {
 class StreamBlock;
 class TableIndex;
 
-class DRTupleStream : public voltdb::AbstractDRTupleStream {
+class DRTupleStream : public AbstractDRTupleStream {
 public:
     //Version(1), type(1), drId(8), uniqueId(8), hashFlag(1), txnLength(4), parHash(4)
     static const size_t BEGIN_RECORD_SIZE = 1 + 1 + 8 + 8 + 1 + 4 + 4;
@@ -76,7 +77,7 @@ public:
 
     virtual size_t truncateTable(int64_t lastCommittedSpHandle,
                        char *tableHandle,
-                       std::string tableName,
+                       string tableName,
                        int partitionColumn,
                        int64_t spHandle,
                        int64_t uniqueId);
@@ -140,20 +141,20 @@ private:
 
     const DRTxnPartitionHashFlag m_initialHashFlag;
     DRTxnPartitionHashFlag m_hashFlag;
-    int64_t m_firstParHash;
-    int64_t m_lastParHash;
+    int64_t m_firstParHash = LONG_MAX;
+    int64_t m_lastParHash = LONG_MAX;
     bool m_hasReplicatedStream;
-    bool m_wasFirstChangeReplicatedTable;
-    bool m_wasLastChangeReplicatedTable;
-    size_t m_beginTxnUso;
+    bool m_wasFirstChangeReplicatedTable = false;
+    bool m_wasLastChangeReplicatedTable = false;
+    size_t m_beginTxnUso = 0;
 
-    int64_t m_lastCommittedSpUniqueId;
-    int64_t m_lastCommittedMpUniqueId;
+    int64_t m_lastCommittedSpUniqueId = 0;
+    int64_t m_lastCommittedMpUniqueId = 0;
 };
 
 class MockDRTupleStream : public DRTupleStream {
 public:
-    MockDRTupleStream(int partitionId) : DRTupleStream(partitionId, 1024) {}
+    //MockDRTupleStream(int partitionId) : DRTupleStream(partitionId, 1024) {}
     size_t appendTuple(int64_t lastCommittedSpHandle,
                            char *tableHandle,
                            int partitionColumn,

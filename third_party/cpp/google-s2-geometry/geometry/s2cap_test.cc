@@ -1,14 +1,14 @@
 /// Copyright 2005 Google Inc. All Rights Reserved.
 
-#include "s2geo/s2cap.h"
+#include "s2/s2cap.h"
 
-#include "s2geo/base/commandlineflags.h"
-#include "s2geo/base/logging.h"
-#include "s2geo/testing/base/public/gunit.h"
-#include "s2geo/s2.h"
-#include "s2geo/s2cell.h"
-#include "s2geo/s2latlng.h"
-#include "s2geo/s2latlngrect.h"
+#include "s2/base/commandlineflags.h"
+#include "s2/base/logging.h"
+#include "s2/testing/base/public/gunit.h"
+#include "s2/s2.h"
+#include "s2/s2cell.h"
+#include "s2/s2latlng.h"
+#include "s2/s2latlngrect.h"
 
 static S2Point GetLatLngPoint(double lat_degrees, double lng_degrees) {
   return S2LatLng::FromDegrees(lat_degrees, lng_degrees).ToPoint();

@@ -624,7 +624,7 @@ NValue VoltDBEngine::callJavaUserDefinedFunction(int32_t functionId, std::vector
     }
     else {
         // Error handling
-        string errorMsg = udfResultIn.readTextString();
+        std::string errorMsg = udfResultIn.readTextString();
         throw SQLException(SQLException::volt_user_defined_function_error, errorMsg);
     }
 }

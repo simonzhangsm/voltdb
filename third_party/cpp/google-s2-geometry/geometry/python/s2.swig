@@ -7,14 +7,14 @@
 %{
 #include <sstream>
 
-#include "s2geo/s2cellid.h"
-#include "s2geo/s2region.h"
-#include "s2geo/s2cap.h"
-#include "s2geo/s2latlng.h"
-#include "s2geo/s2latlngrect.h"
-#include "s2geo/s2regioncoverer.h"
-#include "s2geo/s2cell.h"
-#include "s2geo/s2cellunion.h"
+#include "s2/s2cellid.h"
+#include "s2/s2region.h"
+#include "s2/s2cap.h"
+#include "s2/s2latlng.h"
+#include "s2/s2latlngrect.h"
+#include "s2/s2regioncoverer.h"
+#include "s2/s2cell.h"
+#include "s2/s2cellunion.h"
 %}
 
 // The PACKED macro makes SWIG think that we're declaring a variable of type

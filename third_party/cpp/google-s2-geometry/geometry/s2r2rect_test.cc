@@ -3,15 +3,15 @@
 /// Most of the S2R2Rect methods have trivial implementations in terms of the
 /// R1Interval class, so most of the testing is done in that unit test.
 
-#include "s2geo/s2r2rect.h"
+#include "s2/s2r2rect.h"
 
-#include "s2geo/strings/stringprintf.h"
-#include "s2geo/testing/base/public/gunit.h"
-#include "s2geo/s2.h"
-#include "s2geo/s2cap.h"
-#include "s2geo/s2cell.h"
-#include "s2geo/s2latlngrect.h"
-#include "s2geo/s2testing.h"
+#include "s2/strings/stringprintf.h"
+#include "s2/testing/base/public/gunit.h"
+#include "s2/s2.h"
+#include "s2/s2cap.h"
+#include "s2/s2cell.h"
+#include "s2/s2latlngrect.h"
+#include "s2/s2testing.h"
 
 static S2R2Rect MakeRect(double x_lo, double y_lo, double x_hi, double y_hi) {
   /// Convenience method to construct a rectangle.  This method is

@@ -63,7 +63,7 @@
 #include <set>
 #include <map>
 #include <string>
-#include "s2geo/base/basictypes.h"
+#include "s2/base/basictypes.h"
 
 %}
 

@@ -1,15 +1,15 @@
 /// Copyright 2005 Google Inc. All Rights Reserved.
 
-#include "s2geo/s1angle.h"
+#include "s2/s1angle.h"
 
 #include <sstream>
 
-#include "s2geo/base/commandlineflags.h"
-#include "s2geo/base/integral_types.h"
-#include "s2geo/base/logging.h"
-#include "s2geo/testing/base/public/gunit.h"
-#include "s2geo/s2latlng.h"
-#include "s2geo/s2testing.h"
+#include "s2/base/commandlineflags.h"
+#include "s2/base/integral_types.h"
+#include "s2/base/logging.h"
+#include "s2/testing/base/public/gunit.h"
+#include "s2/s2latlng.h"
+#include "s2/s2testing.h"
 
 DEFINE_int32(iters, (DEBUG_MODE ? 100 : 1000) * (1000 * 1000),
              "Run timing tests with this many iterations");

@@ -51,7 +51,7 @@
 
 
 
-#include "s2geo/s2edgeindex.h"
+#include "s2/s2edgeindex.h"
 
 #include <algorithm>
 using std::min;
@@ -68,12 +68,12 @@ using std::pair;
 using std::make_pair;
 
 
-#include "s2geo/base/commandlineflags.h"
-#include "s2geo/base/logging.h"
-#include "s2geo/s2cell.h"
-#include "s2geo/s2edgeutil.h"
-#include "s2geo/s2polyline.h"
-#include "s2geo/s2regioncoverer.h"
+#include "s2/base/commandlineflags.h"
+#include "s2/base/logging.h"
+#include "s2/s2cell.h"
+#include "s2/s2edgeutil.h"
+#include "s2/s2polyline.h"
+#include "s2/s2regioncoverer.h"
 
 DEFINE_bool(always_recurse_on_children, false,
             "When we test a query edge against a cell, we don't "

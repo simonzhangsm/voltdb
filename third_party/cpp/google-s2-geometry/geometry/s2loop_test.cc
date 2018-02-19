@@ -20,19 +20,19 @@ using std::multiset;
 using std::vector;
 
 
-#include "s2geo/base/commandlineflags.h"
-#include "s2geo/base/logging.h"
-#include "s2geo/base/scoped_ptr.h"
-/// #include "s2geo/testing/base/public/benchmark.h"
-#include "s2geo/testing/base/public/gunit.h"
-#include "s2geo/util/coding/coder.h"
-#include "s2geo/s2cell.h"
-#include "s2geo/s2edgeindex.h"
-#include "s2geo/s2edgeutil.h"
-#include "s2geo/s2loop.h"
-#include "s2geo/s2testing.h"
-#include "s2geo/util/math/matrix3x3.h"
-#include "s2geo/util/math/matrix3x3-inl.h"
+#include "s2/base/commandlineflags.h"
+#include "s2/base/logging.h"
+#include "s2/base/scoped_ptr.h"
+/// #include "s2/testing/base/public/benchmark.h"
+#include "s2/testing/base/public/gunit.h"
+#include "s2/util/coding/coder.h"
+#include "s2/s2cell.h"
+#include "s2/s2edgeindex.h"
+#include "s2/s2edgeutil.h"
+#include "s2/s2loop.h"
+#include "s2/s2testing.h"
+#include "s2/util/math/matrix3x3.h"
+#include "s2/util/math/matrix3x3-inl.h"
 
 DECLARE_bool(s2debug);
 

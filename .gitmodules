@@ -1,0 +1,6 @@
+[submodule "third_party/cpp/s2geometry"]
+	path = third_party/cpp/s2geometry
+	url = https://github.com/google/s2geometry
+[submodule "third_party/cpp/googletest"]
+	path = third_party/cpp/googletest
+	url = https://github.com/google/googletest

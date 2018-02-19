@@ -184,7 +184,7 @@ if CTX.LEVEL == "DEBUG":
     CTX.OUTPUT_PREFIX = "obj/debug"
 
 if CTX.LEVEL == "RELEASE":
-    CTX.CPPFLAGS += " -g3 -O3 -mmmx -msse -msse2 -msse3 -DNDEBUG -DVOLT_LOG_LEVEL=${VOLT_LOG_LEVEL}"
+    CTX.CPPFLAGS += " -g3 -O3 -march=native -DNDEBUG -DVOLT_LOG_LEVEL=${VOLT_LOG_LEVEL}"
     CTX.OUTPUT_PREFIX = "obj/release"
 
 # build in parallel directory instead of subdir so that relative paths work
@@ -203,14 +203,14 @@ CTX.JNIEXT = "so"
 CTX.JNILIBFLAGS += " -shared"
 CTX.SOFLAGS += " -shared"
 CTX.SOEXT = "so"
-out = Popen('java -cp tools/ SystemPropertyPrinter java.library.path'.split(),
-            stdout = PIPE).communicate()[0]
+os.system('javac -cp tools/ tools/SystemPropertyPrinter.java')
+out = Popen('java -cp tools/ SystemPropertyPrinter java.library.path'.split(), stdout = PIPE).communicate()[0]
 libpaths = ' '.join( '-L' + path for path in out.strip().split(':') if path != '' and path != '/usr/lib' )
 CTX.JNIBINFLAGS += " " + libpaths
 CTX.JNIBINFLAGS += " -ljava -ljvm -lverify"
 
 if CTX.PLATFORM == "Darwin":
-    CTX.CPPFLAGS += " -DMACOSX -arch x86_64"
+    CTX.CPPFLAGS += " -arch x86_64"
     CTX.JNIEXT = "jnilib"
     CTX.JNILIBFLAGS = " -bundle"
     CTX.JNIBINFLAGS = " -framework JavaVM,1.8"
@@ -219,7 +219,7 @@ if CTX.PLATFORM == "Darwin":
     CTX.JNIFLAGS = "-framework JavaVM,1.8"
 
 if CTX.PLATFORM == "Linux":
-    CTX.CPPFLAGS += " -Wno-attributes -Wcast-align -DLINUX -fpic"
+    CTX.CPPFLAGS += " -Wno-attributes -Wcast-align -fPIC"
     CTX.NMFLAGS += " --demangle"
 
 ###############################################################################
@@ -450,13 +450,18 @@ CTX.THIRD_PARTY_INPUT['sha1'] = """
 ###############################################################################
 # Some special handling for S2.
 ###############################################################################
-CTX.S2GEO_LIBS += "-ls2geo -lcrypto"
-CTX.LASTLDFLAGS += CTX.S2GEO_LIBS
+CTX.S2_LIBS += "-ls2 -lcrypto"
+CTX.LASTLDFLAGS += CTX.S2_LIBS
 
 ###############################################################################
 # Some special handling for OpenSSL
 ###############################################################################
-CTX.OPENSSL_VERSION="1.0.2d"
+CTX.OPENSSL_VERSION="1.0.2n"
+
+###############################################################################
+# Some special handling for PCRE2 
+###############################################################################
+CTX.PCRE2_VERSION="10.30"
 
 ###############################################################################
 # SPECIFY THE TESTS

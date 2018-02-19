@@ -78,6 +78,8 @@
 // keep in sync with value MAX_BUFFER_SIZE in ExecutionEngineJNI.java
 #define MAX_UDF_BUFFER_SIZE 50*1024*1024
 
+using namespace std;
+
 namespace catalog {
 class Catalog;
 class Database;

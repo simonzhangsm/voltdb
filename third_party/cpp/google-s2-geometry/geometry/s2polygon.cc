@@ -18,18 +18,18 @@ using std::multiset;
 using std::vector;
 
 
-#include "s2geo/base/commandlineflags.h"
-#include "s2geo/s2polygon.h"
+#include "s2/base/commandlineflags.h"
+#include "s2/s2polygon.h"
 
-#include "s2geo/base/port.h"  // for HASH_NAMESPACE_DECLARATION_START
-#include "s2geo/util/coding/coder.h"
-#include "s2geo/s2edgeindex.h"
-#include "s2geo/s2cap.h"
-#include "s2geo/s2cell.h"
-#include "s2geo/s2cellunion.h"
-#include "s2geo/s2latlngrect.h"
-#include "s2geo/s2polygonbuilder.h"
-#include "s2geo/s2polyline.h"
+#include "s2/base/port.h"  // for HASH_NAMESPACE_DECLARATION_START
+#include "s2/util/coding/coder.h"
+#include "s2/s2edgeindex.h"
+#include "s2/s2cap.h"
+#include "s2/s2cell.h"
+#include "s2/s2cellunion.h"
+#include "s2/s2latlngrect.h"
+#include "s2/s2polygonbuilder.h"
+#include "s2/s2polyline.h"
 
 DECLARE_bool(s2debug);  // defined in s2.cc
 
@@ -102,15 +102,17 @@ void S2Polygon::Release(vector<S2Loop*>* loops) {
   has_holes_ = false;
 }
 
-static void DeleteLoopsInVector(vector<S2Loop*>* loops) {
-  for (int i = 0; i < loops->size(); ++i) {
-    delete loops->at(i);
-  }
-  loops->clear();
+void S2Polygon::DeleteLoopsInVector() {
+	if (owns_loops_) {
+		for (int i = 0; i < num_loops(); ++i) {
+			delete loops_.at(i);
+		}
+		loops_.clear();
+	}
 }
 
 S2Polygon::~S2Polygon() {
-  if (owns_loops_) DeleteLoopsInVector(&loops_);
+  DeleteLoopsInVector();
 }
 
 typedef pair<S2Point, S2Point> S2PointPair;
@@ -525,7 +527,7 @@ bool S2Polygon::DecodeInternal(Decoder* const decoder, bool within_scope) {
   unsigned char version = decoder->get8();
   if (version > kCurrentEncodingVersionNumber) return false;
 
-  if (owns_loops_) DeleteLoopsInVector(&loops_);
+  DeleteLoopsInVector();
 
   owns_loops_ = decoder->get8();
   has_holes_ = decoder->get8();

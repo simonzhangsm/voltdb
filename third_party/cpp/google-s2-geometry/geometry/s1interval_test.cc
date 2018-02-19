@@ -1,7 +1,7 @@
 /// Copyright 2005 Google Inc. All Rights Reserved.
 
-#include "s2geo/s1interval.h"
-#include "s2geo/testing/base/public/gunit.h"
+#include "s2/s1interval.h"
+#include "s2/testing/base/public/gunit.h"
 
 class S1IntervalTestBase : public testing::Test {
  public:

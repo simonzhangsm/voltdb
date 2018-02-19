@@ -5,14 +5,14 @@
 using std::numeric_limits;
 
 
-#include "s2geo/base/commandlineflags.h"
-#include "s2geo/base/integral_types.h"
-#include "s2geo/base/logging.h"
-#include "s2geo/base/macros.h"
-#include "s2geo/base/strtoint.h"
-#include "s2geo/strings/split.h"
-#include "s2geo/strings/strutil.h"
-#include "s2geo/util/hash/hash_jenkins_lookup2.h"
+#include "s2/base/commandlineflags.h"
+#include "s2/base/integral_types.h"
+#include "s2/base/logging.h"
+#include "s2/base/macros.h"
+#include "s2/base/strtoint.h"
+#include "s2/strings/split.h"
+#include "s2/strings/strutil.h"
+#include "s2/util/hash/hash_jenkins_lookup2.h"
 
 static const uint32 MIX32 = 0x12b9b0a1UL;           // pi; an arbitrary number
 static const uint64 MIX64 = GG_ULONGLONG(0x2b992ddfa23249d6);  // more of pi

@@ -21,15 +21,15 @@ using std::pair;
 using std::make_pair;
 
 
-#include "s2geo/s2loop.h"
+#include "s2/s2loop.h"
 
-#include "s2geo/base/commandlineflags.h"
-#include "s2geo/base/logging.h"
-#include "s2geo/base/scoped_ptr.h"
-#include "s2geo/util/coding/coder.h"
-#include "s2geo/s2cap.h"
-#include "s2geo/s2cell.h"
-#include "s2geo/s2edgeindex.h"
+#include "s2/base/commandlineflags.h"
+#include "s2/base/logging.h"
+#include "s2/base/scoped_ptr.h"
+#include "s2/util/coding/coder.h"
+#include "s2/s2cap.h"
+#include "s2/s2cell.h"
+#include "s2/s2edgeindex.h"
 
 static const unsigned char kCurrentEncodingVersionNumber = 1;
 

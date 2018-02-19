@@ -1,6 +1,6 @@
 /// Copyright 2009 Google Inc. All Rights Reserved.
 
-#include "s2geo/util/math/exactfloat/exactfloat.h"
+#include "s2/util/math/exactfloat/exactfloat.h"
 #include <cstring>
 #include <cmath>
 
@@ -20,8 +20,8 @@ using std::isnan;
 #include <limits>
 using std::numeric_limits;
 
-#include "s2geo/base/integral_types.h"
-#include "s2geo/base/logging.h"
+#include "s2/base/integral_types.h"
+#include "s2/base/logging.h"
 #include "openssl/crypto.h"
 
 /// Define storage for constants.

@@ -5,8 +5,8 @@
 #include <vector>
 using std::vector;
 
-#include "s2geo/base/stringprintf.h"
-#include "s2geo/base/logging.h"
+#include "s2/base/stringprintf.h"
+#include "s2/base/logging.h"
 
 void StringAppendV(string* dst, const char* format, va_list ap) {
   /// First try with a small fixed size buffer

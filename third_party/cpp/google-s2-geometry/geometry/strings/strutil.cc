@@ -2,7 +2,7 @@
 /// Copyright (C) 1999-2005 Google, Inc.
 ///
 
-#include "s2geo/strings/strutil.h"
+#include "s2/strings/strutil.h"
 
 #include <ctype.h>
 #include <errno.h>
@@ -42,13 +42,13 @@ using std::string;
 using std::vector;
 
 
-#include "s2geo/base/logging.h"
-#include "s2geo/base/scoped_ptr.h"
+#include "s2/base/logging.h"
+#include "s2/base/scoped_ptr.h"
 ///#include "strutil-inl.h"
 ///#include "third_party/utf/utf.h"  // for runetochar
-///#include "s2geo/util/gtl/stl_util-inl.h"  // for string_as_array
-///#include "s2geo/util/hash/hash.h"
-#include "s2geo/strings/split.h"
+///#include "s2/util/gtl/stl_util-inl.h"  // for string_as_array
+///#include "s2/util/hash/hash.h"
+#include "s2/strings/split.h"
 
 #ifdef OS_WINDOWS
 #include <pthread.h>        // for gmtime_r

@@ -2,7 +2,7 @@
 ///
 /// To run the benchmarks, use:
 
-#include "s2geo/s2polygon.h"
+#include "s2/s2polygon.h"
 
 #include <algorithm>
 using std::min;
@@ -18,25 +18,25 @@ using std::string;
 using std::vector;
 
 
-#include "s2geo/base/commandlineflags.h"
-#include "s2geo/base/logging.h"
-#include "s2geo/base/macros.h"
-#include "s2geo/base/scoped_ptr.h"
-#include "s2geo/strings/stringprintf.h"
-/// #include "s2geo/testing/base/public/benchmark.h"
-#include "s2geo/testing/base/public/gunit.h"
-#include "s2geo/util/coding/coder.h"
-#include "s2geo/s2.h"
-#include "s2geo/s2cap.h"
-#include "s2geo/s2cellunion.h"
-#include "s2geo/s2latlng.h"
-#include "s2geo/s2loop.h"
-#include "s2geo/s2polygonbuilder.h"
-#include "s2geo/s2polyline.h"
-#include "s2geo/s2regioncoverer.h"
-#include "s2geo/s2testing.h"
-#include "s2geo/util/math/matrix3x3.h"
-#include "s2geo/util/math/matrix3x3-inl.h"
+#include "s2/base/commandlineflags.h"
+#include "s2/base/logging.h"
+#include "s2/base/macros.h"
+#include "s2/base/scoped_ptr.h"
+#include "s2/strings/stringprintf.h"
+/// #include "s2/testing/base/public/benchmark.h"
+#include "s2/testing/base/public/gunit.h"
+#include "s2/util/coding/coder.h"
+#include "s2/s2.h"
+#include "s2/s2cap.h"
+#include "s2/s2cellunion.h"
+#include "s2/s2latlng.h"
+#include "s2/s2loop.h"
+#include "s2/s2polygonbuilder.h"
+#include "s2/s2polyline.h"
+#include "s2/s2regioncoverer.h"
+#include "s2/s2testing.h"
+#include "s2/util/math/matrix3x3.h"
+#include "s2/util/math/matrix3x3-inl.h"
 
 DEFINE_int32(num_loops_per_polygon_for_bm,
              10,

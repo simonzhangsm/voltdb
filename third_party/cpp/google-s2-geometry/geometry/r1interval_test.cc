@@ -2,9 +2,9 @@
 
 #include <iostream>
 
-#include "s2geo/r1interval.h"
+#include "s2/r1interval.h"
 
-#include "s2geo/testing/base/public/gunit.h"
+#include "s2/testing/base/public/gunit.h"
 
 static void TestIntervalOps(R1Interval const& x, R1Interval const& y,
                             const char* expected) {

@@ -1,18 +1,18 @@
 /// Copyright 2005 Google Inc. All Rights Reserved.
 
-#include "s2geo/s2regionunion.h"
+#include "s2/s2regionunion.h"
 
 #include <vector>
 using std::vector;
 
 
-#include "s2geo/base/scoped_ptr.h"
-#include "s2geo/testing/base/public/gunit.h"
-#include "s2geo/s2cap.h"
-#include "s2geo/s2cell.h"
-#include "s2geo/s2latlngrect.h"
-#include "s2geo/s2pointregion.h"
-#include "s2geo/s2regioncoverer.h"
+#include "s2/base/scoped_ptr.h"
+#include "s2/testing/base/public/gunit.h"
+#include "s2/s2cap.h"
+#include "s2/s2cell.h"
+#include "s2/s2latlngrect.h"
+#include "s2/s2pointregion.h"
+#include "s2/s2regioncoverer.h"
 
 namespace {
 

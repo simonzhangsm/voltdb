@@ -14,7 +14,7 @@
 #include "stdio.h"
 #include "time.h"
 
-#include "s2geo/base/logging.h"
+#include "s2/base/logging.h"
 
 namespace google_base {
 DateLogger::DateLogger() {

@@ -24,8 +24,8 @@
 #include "common/MiscUtil.h"
 #include "common/value_defs.h"
 
-#include "s2geo/s2.h"
-#include "s2geo/s2latlng.h"
+#include "s2/s2point.h"
+#include "s2/s2latlng.h"
 
 namespace voltdb {
 /**

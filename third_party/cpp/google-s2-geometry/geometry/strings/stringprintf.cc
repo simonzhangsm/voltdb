@@ -8,7 +8,7 @@ using std::vector;
 #include <string>
 using std::string;
 #include "stringprintf.h"
-#include "s2geo/base/logging.h"
+#include "s2/base/logging.h"
 /// Max arguments supported by StringPrintVector
 const int kStringPrintfVectorMaxArgs = 32;
 
